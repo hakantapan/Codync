@@ -34,8 +34,10 @@ impl Actor {
             return;
         };
         let title = params["message"].as_str().filter(|m| !m.is_empty()).unwrap_or("A question for you").to_owned();
+        // The entry keeps the form's own title; the activity line and push carry the question itself.
+        let summary = question_form::summary(&title, &fields);
         let data = json!({"title": title, "fields": fields, "status": "pending", "answer": Value::Null});
-        self.show_card(&title, data, Answer::Elicit(rpc_id));
+        self.show_card(&summary, data, Answer::Elicit(rpc_id));
     }
 
     /// Tells the agent the user skipped its question.

@@ -77,6 +77,8 @@ async fn one_tap_answer_reaches_the_agent() {
         assert!(Instant::now() < deadline, "the bot never showed it needs input");
         tokio::time::sleep(Duration::from_millis(50)).await;
     }
+    // Clients without question cards read the question and its choices there.
+    assert_eq!(host.snapshot().await["bots"][0]["activity"], "Has a question: Which database? PostgreSQL / SQLite");
 
     host.call("respondQuestion", json!({"entryId": card["id"], "answers": {"question_0": ["PostgreSQL"]}})).await;
     let got = outcome(&host, &bot).await;

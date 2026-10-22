@@ -1,6 +1,7 @@
 //! An agent's form (`elicitation/create`, how Claude Code asks `AskUserQuestion`) as the fields of a
 //! question card, and the card's answers as the form's content.
 
+use crate::agent::acp;
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 
@@ -57,6 +58,29 @@ fn options(p: &Value) -> Option<Vec<Value>> {
         bare.iter().filter_map(Value::as_str).map(|v| json!({"value": v, "label": v, "description": null})).collect()
     };
     (!options.is_empty()).then_some(options)
+}
+
+/// The card in one line, for clients that can't show it (the bot's activity line, the push body): the question and
+/// the first choice field's options, as `Which database? SQLite / PostgreSQL / MySQL (+1 more)`. With several
+/// questions `message` is only "Please answer the following questions.", so the first one's own text stands in.
+pub(super) fn summary(message: &str, fields: &[Value]) -> String {
+    const SHOWN: usize = 3;
+    let mut choices = fields.iter().filter(|f| f["kind"] != "text");
+    let first = choices.next();
+    let question = match (first, choices.next()) {
+        (Some(f), Some(_)) => f["description"].as_str().or_else(|| f["title"].as_str()).unwrap_or(message),
+        _ => message,
+    };
+    let labels: Vec<&str> =
+        first.and_then(|f| f["options"].as_array()).into_iter().flatten().filter_map(|o| o["label"].as_str()).collect();
+    let mut line = question.to_owned();
+    if !labels.is_empty() {
+        line = format!("{line} {}", labels[..labels.len().min(SHOWN)].join(" / "));
+    }
+    if labels.len() > SHOWN {
+        line = format!("{line} (+{} more)", labels.len() - SHOWN);
+    }
+    acp::truncate(&line, 200)
 }
 
 /// The form's content for the card's answers (`{field key: [chosen values or typed text]}`), and what the
@@ -173,6 +197,29 @@ mod tests {
         let (content, lines) = content(&fields, &json!({"question_0_custom": ["MySQL, please"]}));
         assert_eq!(content, json!({"question_0_custom": "MySQL, please"}));
         assert_eq!(lines, ["MySQL, please"]);
+    }
+
+    #[test]
+    fn the_summary_names_the_first_question_and_its_choices() {
+        let options = |labels: &[&str]| labels.iter().map(|l| json!({"const": l, "title": l})).collect::<Vec<_>>();
+        let several = fields(&json!({"properties": {
+            "question_0": {"type": "string", "title": "Database", "description": "Which database should we use?",
+                           "oneOf": options(&["SQLite", "PostgreSQL", "MySQL", "Redis"])},
+            "question_0_custom": {"type": "string", "title": "Other"},
+            "question_1": {"type": "array", "description": "Which extras?", "items": {"anyOf": options(&["Cache"])}}}}))
+        .unwrap();
+        assert_eq!(
+            summary("Please answer the following questions.", &several),
+            "Which database should we use? SQLite / PostgreSQL / MySQL (+1 more)"
+        );
+        // One question carries its text in `message`.
+        let one = fields(&json!({"properties": {"question_0": {"type": "string", "oneOf": options(&["Yes", "No"])},
+            "question_0_custom": {"type": "string"}}}))
+        .unwrap();
+        assert_eq!(summary("Ship it?", &one), "Ship it? Yes / No");
+        assert_eq!(summary("Your name?", &one[1..]), "Your name?");
+        let long = summary(&"x".repeat(300), &one);
+        assert!(long.ends_with('…') && long.chars().count() == 201, "{long}");
     }
 
     #[test]
