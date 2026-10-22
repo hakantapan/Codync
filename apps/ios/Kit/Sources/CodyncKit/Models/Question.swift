@@ -20,7 +20,7 @@ public struct QuestionField: Codable, Hashable, Sendable, Identifiable {
 }
 
 /// One choice of a question card's field.
-public struct QuestionOption:Codable, Hashable, Sendable, Identifiable {
+public struct QuestionOption: Codable, Hashable, Sendable, Identifiable {
     public var value: String
     public var label: String
     public var description: String?
