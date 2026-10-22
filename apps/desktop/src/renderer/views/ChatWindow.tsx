@@ -35,7 +35,7 @@ export { EmptyState } from './HostStateView'
 import { StarPrompt } from './StarPrompt'
 import { OpenVoiceSettings } from './call/CallView'
 import { AccountPanelLayer, DesktopActionMenu, ProfileAvatar, type ActionItem } from './PanelMenus'
-import { moveToSectionItems, type SectionNaming } from './section-menus'
+import { moveToSectionItems, sectionHeaderItems, type SectionNaming } from './section-menus'
 import { SectionNameDialog } from './SectionNameDialog'
 import { useTraySummary } from './tray-summary'
 import { useIslandSummary } from './island-summary'
@@ -360,7 +360,12 @@ function ChatSplitView() {
           </div>
         ) : null}
         <div className="roster" ref={listRef} tabIndex={0} onKeyDown={onListKey}>
-          <BotRoster roster={roster} compact={compact} onContext={(bot, store, x, y) => setContext({ items: botActions(bot, store), x, y })} />
+          <BotRoster roster={roster} compact={compact}
+            onContext={(bot, store, x, y) => setContext({ items: botActions(bot, store), x, y })}
+            onSectionContext={(section, store, x, y) => {
+              const items = sectionHeaderItems(section, store, setNaming)
+              if (items.length) setContext({ items, x, y })
+            }} />
           {visibleRoster.length === 0 && !roster.grouped && !compact && mismatchStores.length === 0 ? (
             <div className="roster-empty">
               <Text as="div" size="body" weight="medium">{onlineStores.length ? 'No bots yet' : 'Waiting for a computer'}</Text>
