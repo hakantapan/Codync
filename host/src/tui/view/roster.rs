@@ -5,7 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Span;
 
-use super::super::app::{App, Bot, Click, Focus, Mark, Status};
+use super::super::app::{App, Bot, Click, Focus, Mark, RosterLine, Status, cursor_line, roster_lines};
 use super::super::md::{self, truncate, width as w};
 use super::buffer::{fill, hline, put, put_line, restyle, rput, u};
 use super::style::{avatar, glyph, theme};
@@ -49,34 +49,45 @@ pub(super) fn roster(buf: &mut Buffer, r: Rect, app: &mut App, narrow: bool) {
             y += 1;
         }
     }
-    // Rows: an optional section label, then 2 lines per bot and a gap.
-    let any_pinned = bots.iter().any(|b| b.pinned);
-    let mut rows: Vec<(u16, Option<&'static str>, Option<usize>)> = vec![];
+    // Lines: a label takes one row, a bot two and a gap.
+    let shown: Vec<&Bot> = bots.iter().collect();
+    let lines = roster_lines(&shown, &app.folded);
+    let mut rows: Vec<u16> = vec![];
     let mut y = 0u16;
-    for (i, b) in bots.iter().enumerate() {
-        if any_pinned && (i == 0 || (bots[i - 1].pinned && !b.pinned)) {
-            rows.push((y, Some(if b.pinned { "PINNED" } else { "BOTS" }), None));
-            y += 1;
-        }
-        rows.push((y, None, Some(i)));
-        y += 3;
+    for line in &lines {
+        rows.push(y);
+        y += if matches!(line, RosterLine::Bot(_)) { 3 } else { 1 };
     }
-    let sel_idx = app.selected.as_ref().and_then(|s| bots.iter().position(|b| &b.id == s));
+    let cursor = cursor_line(&lines, app.selected.as_ref().and_then(|s| bots.iter().find(|b| &b.id == s)));
     let view_h = bottom.saturating_sub(top);
-    let sel_y = sel_idx.and_then(|i| rows.iter().find(|r| r.2 == Some(i)).map(|r| r.0)).unwrap_or(0);
-    let offset = (sel_y + 3).saturating_sub(view_h);
-    for (ry, label, idx) in rows {
+    let offset = (cursor.map_or(0, |i| rows[i]) + 3).saturating_sub(view_h);
+    for (i, (line, &ry)) in lines.iter().zip(&rows).enumerate() {
         let Some(yy) = (top + ry).checked_sub(offset) else { continue };
         if ry < offset || yy + 1 >= bottom {
             continue;
         }
-        if let Some(l) = label {
-            put(buf, x0 + 1, yy, wd, l, t.dim.add_modifier(Modifier::BOLD));
-            continue;
-        }
-        let Some(i) = idx else { continue };
-        let b = &bots[i];
-        let selected = Some(i) == sel_idx;
+        let selected = cursor == Some(i);
+        let b = match line {
+            RosterLine::Label(l) => {
+                put(buf, x0 + 1, yy, wd, l, t.dim.add_modifier(Modifier::BOLD));
+                continue;
+            }
+            RosterLine::Section { name, bots: count, unread, folded } => {
+                if selected {
+                    restyle(buf, Rect::new(x0, yy, wd, 1), t.sel);
+                    put(buf, x0, yy, 1, "▌", if focused { t.bold } else { t.secondary });
+                }
+                let arrow = if *folded { "▸" } else { "▾" };
+                let badge = if *folded && *unread > 0 { format!(" {unread} ") } else { String::new() };
+                let label = format!("{arrow} {name} ({count})");
+                put(buf, x0 + 1, yy, wd.saturating_sub(2 + u(w(&badge))), &label, t.dim.add_modifier(Modifier::BOLD));
+                if !badge.is_empty() {
+                    rput(buf, r.right() - 1, yy, &badge, t.btn_primary);
+                }
+                continue;
+            }
+            RosterLine::Bot(b) => *b,
+        };
         let row = Rect::new(x0, yy, wd, 2);
         app.hits.clicks.push((row, Click::Bot(b.id.clone())));
         if selected {

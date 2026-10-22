@@ -18,6 +18,7 @@ mod ui;
 pub use editor::Editor;
 pub use exchange::{ConversationRow, Exchange, Item, Outcome, conversation, group, rows};
 pub use model::{After, AgentModel, Bot, Entry, Kind, Mark, ModelOption, Msg, Status};
+pub use roster::{RosterLine, cursor_line, roster_lines};
 pub use slash::SlashAction;
 pub use ui::{
     ACTIONS, Action, COLORS, Click, Confirm, ConfirmAct, Dir, FIELDS, FILTERS, Field, Focus, FolderPicker, Form, Goto,
@@ -96,6 +97,8 @@ pub struct App {
     pub pick: Option<String>,
     /// Chat lines showing their full text: a handoff (`o` on the picked line).
     pub unfolded: HashSet<String>,
+    /// Roster sections showing their label alone (`z`); this run only.
+    pub folded: HashSet<String>,
     pub market: (Vec<Toggle>, Vec<Toggle>),
     /// Installed connectors and skills as the host lists them.
     pub plugins: (Vec<Value>, Vec<Value>),
@@ -166,6 +169,7 @@ impl App {
             reply: None,
             pick: None,
             unfolded: HashSet::new(),
+            folded: HashSet::new(),
             market: (vec![], vec![]),
             plugins: (vec![], vec![]),
             models: HashMap::new(),
