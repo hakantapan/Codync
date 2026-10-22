@@ -24,6 +24,10 @@ impl Actor {
                 }
             }
             Cmd::Send { lane, entry_id, text } => {
+                // Typed while a question card waits in this lane: it's the card's answer (`question`).
+                if self.turn.is_some() && lane == self.lane && self.answer_with_message(&entry_id).await {
+                    return true;
+                }
                 self.queue.push_back(Queued::User { lane, entry_id, text });
                 if self.turn.is_none() {
                     self.next_in_queue(done_tx).await;

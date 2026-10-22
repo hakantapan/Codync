@@ -1,5 +1,5 @@
 //! Agent → user: a form (`elicitation/create`, how Claude Code asks `AskUserQuestion`) as a question card,
-//! answered on the card or cancelled with its turn (`cancel_turn`).
+//! answered on the card, by the user's next message, or cancelled with its turn (`cancel_turn`).
 
 use super::Actor;
 use super::cards::Answer;
@@ -59,5 +59,31 @@ impl Actor {
             self.hub.set_entry(entry_id, &e.data);
         }
         self.after_answer();
+    }
+
+    /// A message typed while a question card waits in the turn's lane answers the card's first text field
+    /// (`AskUserQuestion`'s "Other") instead of queueing a turn, so clients without question cards (Android,
+    /// the TUI, older apps) can answer too. Whether it did; a card it can't answer is skipped, and the
+    /// message queues as usual.
+    pub(super) async fn answer_with_message(&mut self, entry_id: &str) -> bool {
+        let Some(card) = self.perms.iter().find_map(|(id, a)| matches!(a, Answer::Elicit(_)).then(|| id.clone()))
+        else {
+            return false;
+        };
+        let Some(mut message) = self.hub.store.entry(entry_id) else { return false };
+        let text = message.data["text"].as_str().unwrap_or_default().trim().to_owned();
+        let key = self.hub.store.entry(&card).and_then(|e| {
+            e.data["fields"].as_array()?.iter().find(|f| f["kind"] == "text")?["key"].as_str().map(str::to_owned)
+        });
+        let Some(key) = key.filter(|_| !text.is_empty()) else {
+            self.answer_question(&card, None).await;
+            return false;
+        };
+        let mut answers = serde_json::Map::new();
+        answers.insert(key, json!([text]));
+        self.answer_question(&card, Some(&Value::Object(answers))).await;
+        message.data["status"] = json!(crate::chat::team::RequestStatus::Sent);
+        self.hub.set_entry(entry_id, &message.data);
+        true
     }
 }

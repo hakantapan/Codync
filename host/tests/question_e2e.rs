@@ -124,3 +124,24 @@ async fn a_form_the_card_cannot_show_is_declined() {
     let history = host.call("history", json!({"botId": bot})).await;
     assert!(history["entries"].as_array().unwrap().iter().all(|e| e["kind"] != "question"));
 }
+
+#[tokio::test]
+async fn a_typed_message_answers_the_open_question() {
+    if python_missing() {
+        return;
+    }
+    let host = Host::start().await;
+    let bot = host.fixture_bot("Asker", "question_agent.py", "ask").await;
+    let card = ask(&host, &bot).await;
+    host.call("send", json!({"botId": bot, "text": "MySQL, please", "clientNonce": "typed"})).await;
+    let got = outcome(&host, &bot).await;
+    assert_eq!(got["answer"], json!({"action": "accept", "content": {"question_0_custom": "MySQL, please"}}));
+    assert_eq!(got["prompts"], 1, "the message answered the card instead of starting a turn");
+    assert_eq!(settled(&host, &bot, &card).await["data"]["answer"], json!(["MySQL, please"]));
+    let message = wait_for(&host, &bot, |e| e["kind"] == "user" && e["data"]["clientNonce"] == "typed").await;
+    assert_eq!(message["data"]["status"], "sent");
+    // No second turn followed (it would ask again).
+    tokio::time::sleep(Duration::from_millis(500)).await;
+    let history = host.call("history", json!({"botId": bot})).await;
+    assert_eq!(history["entries"].as_array().unwrap().iter().filter(|e| e["kind"] == "question").count(), 1);
+}
