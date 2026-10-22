@@ -76,7 +76,8 @@ impl Actor {
         let Some(mut message) = self.hub.store.entry(entry_id) else { return false };
         // Only the user's new words answer. Host notes (`from: host`, as in `turn`) and messages typed before the
         // question (held sign-in messages sent again) travel as `Cmd::Send` too, but weren't written for it.
-        if message.data["from"] == "host" || message.created_at < card.created_at {
+        // `seq` is insertion order: unlike the wall clock, it can't step backwards.
+        if message.data["from"] == "host" || message.seq < card.seq {
             return false;
         }
         let text = message.data["text"].as_str().unwrap_or_default().trim().to_owned();
