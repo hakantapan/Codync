@@ -8,7 +8,7 @@ use crate::store::{EntryKind, Permission};
 use serde_json::{Value, json};
 use tokio::sync::oneshot;
 
-/// Who waits for an approval card's answer.
+/// Who waits for an approval or question card's answer.
 pub(super) enum Answer {
     /// The agent's `session/request_permission`, by its JSON-RPC id.
     Agent(Value),

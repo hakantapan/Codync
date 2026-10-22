@@ -346,7 +346,7 @@ struct Actor {
     /// The bot's `react` this turn; with no message sent, it is the reply.
     reacted: Reacted,
     files: files::FileShares,
-    /// permission entry id -> who waits for the answer
+    /// approval or question card entry id -> who waits for the answer
     perms: HashMap<String, cards::Answer>,
     stop_requested: bool,
     /// A cancelled turn still running past this stops its agent process.

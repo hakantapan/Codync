@@ -8,11 +8,14 @@ use serde_json::{Value, json};
 
 impl Actor {
     /// Posts the card whatever the bot's approvals: a question has no answer to pick for the user. A routine run or
-    /// a bot-to-bot request has nobody to answer, so its question is declined at once and posts no card (before
-    /// question cards Claude couldn't ask there at all). Group turns get cards: the user is in the room.
+    /// an ask another bot waits on has nobody to answer, so its question is declined at once and posts no card
+    /// (before question cards Claude couldn't ask there at all). Group turns get cards: the user is in the room.
+    /// So does a request that reports in the recipient's own chat (the user reads it there, as with approvals).
     pub(super) async fn on_elicit(&mut self, rpc_id: Value, params: Value) {
-        if self.active_routine.is_some() || self.active_request.is_some() {
-            tracing::info!(bot = %self.cfg.id, "declined a question: nobody is there to answer a routine or a request");
+        if self.active_routine.is_some()
+            || self.active_request.as_ref().is_some_and(crate::chat::team::BotRequest::expects_reply)
+        {
+            tracing::info!(bot = %self.cfg.id, "declined a question: nobody is there to answer a routine or an ask");
             self.decline(rpc_id).await;
             return;
         }

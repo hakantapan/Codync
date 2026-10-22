@@ -32,7 +32,7 @@ Declaring the capability also forwards MCP servers' form elicitations through th
 ## Host
 
 1. **Capability.** `launch.rs` adds `"elicitation": {"form": {}}` to `clientCapabilities`.
-2. **Request.** `on_incoming` routes `elicitation/create` during a turn to a new `on_elicit`. It is never auto-answered, including under `Permission::Auto`: a question has no safe default. Outside a turn it keeps the `-32601` reply. A routine run or a bot-to-bot request has nobody to answer, so its question is declined at once and posts no card; group turns still get cards, since the user is in the room.
+2. **Request.** `on_incoming` routes `elicitation/create` during a turn to a new `on_elicit`. It is never auto-answered, including under `Permission::Auto`: a question has no safe default. Outside a turn it keeps the `-32601` reply. A routine run or an ask whose reply goes back to another bot has nobody to answer, so its question is declined at once and posts no card; group turns, and bot requests that report in the recipient's own chat, still get cards, since the user reads them there (as approval cards already go to the user).
 3. **Schema → fields.** A new `host/src/agent/bot/question_form.rs` turns `requestedSchema` into a flat list, so no client parses JSON Schema:
 
    | Schema property | `kind` |
