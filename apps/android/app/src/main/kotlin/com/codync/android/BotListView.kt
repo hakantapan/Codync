@@ -33,6 +33,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -58,6 +59,8 @@ import kotlinx.serialization.json.putJsonArray
 @Composable internal fun BotListView(state: AppState, store: AppStore, account: () -> Unit, manage: () -> Unit,
     newBot: () -> Unit, newGroup: () -> Unit, edit: (Bot) -> Unit, bottomInset: androidx.compose.ui.unit.Dp) {
     var confirmDelete by remember { mutableStateOf<Bot?>(null) }
+    val context = LocalContext.current
+    var folded by remember { mutableStateOf(FoldedSections.load(context)) }
     val roster = roster(state.bots)
     val reorder = remember { RosterReorder() }
     reorder.roster = roster
@@ -82,12 +85,22 @@ import kotlinx.serialization.json.putJsonArray
             if (roster.isEmpty() && state.mismatch == null) item {
                 EmptyRoster(canCreate = usable, hasComputer = usable, create = newBot, showComputers = manage)
             }
-            items(reorder.shown(roster), key = Bot::id) { bot ->
-                val lifted = reorder.dragged == bot.id
-                Box(Modifier.onSizeChanged { reorder.heights[bot.id] = it.height }
-                    .then(if (lifted) Modifier.zIndex(1f).graphicsLayer { translationY = reorder.offset; scaleX = 1.02f; scaleY = 1.02f }
-                        else Modifier.animateItem())) {
-                    BotRowItem(bot, state, store, reorder.handle(bot.id) { store.reorder(it) }, edit = { edit(bot) }, delete = { confirmDelete = bot })
+            items(rosterLines(reorder.shown(roster), folded), key = RosterLine::key) { line ->
+                when (line) {
+                    // Folding drops the section's rows from the list; animateItem fades them out and slides the rest up.
+                    is RosterLine.Header -> SectionHeader(line, toggle = {
+                        folded = if (line.name in folded) folded - line.name else folded + line.name
+                        FoldedSections.save(context, folded)
+                    }, actions = emptyList(), modifier = Modifier.animateItem())
+                    is RosterLine.Row -> {
+                        val bot = line.bot
+                        val lifted = reorder.dragged == bot.id
+                        Box(Modifier.onSizeChanged { reorder.heights[bot.id] = it.height }
+                            .then(if (lifted) Modifier.zIndex(1f).graphicsLayer { translationY = reorder.offset; scaleX = 1.02f; scaleY = 1.02f }
+                                else Modifier.animateItem())) {
+                            BotRowItem(bot, state, store, reorder.handle(bot.id) { store.reorder(it) }, edit = { edit(bot) }, delete = { confirmDelete = bot })
+                        }
+                    }
                 }
             }
         }

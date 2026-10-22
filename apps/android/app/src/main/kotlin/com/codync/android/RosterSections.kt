@@ -1,5 +1,7 @@
 package com.codync.android
 
+import android.content.Context
+import androidx.core.content.edit
 import com.codync.android.core.AppVersion
 import com.codync.android.core.Bot
 import java.text.Collator
@@ -53,3 +55,11 @@ internal fun sectionUpdate(id: String, section: String?): JsonObject = buildJson
 
 /** `renameSection`: every bot in [from] moves to [to], merging into a section of that name; null removes the section. */
 internal fun sectionRename(from: String, to: String?): JsonObject = buildJsonObject { put("from", from); put("to", to) }
+
+/** The sections folded on this device (iOS `@AppStorage("collapsedRosterSections")`); not synced. */
+internal object FoldedSections {
+    private const val KEY = "collapsedRosterSections"
+    private fun prefs(context: Context) = context.getSharedPreferences("codync-roster", Context.MODE_PRIVATE)
+    fun load(context: Context): Set<String> = prefs(context).getStringSet(KEY, null).orEmpty().toSet()
+    fun save(context: Context, names: Set<String>) { prefs(context).edit { putStringSet(KEY, names) } }
+}
