@@ -50,6 +50,8 @@ pub struct App {
     pub url: String,
     pub host: String,
     pub home: String,
+    /// The host's version (`hello`): features newer than `MIN_HOST` check it.
+    pub host_version: String,
     pub online: bool,
     pub error: Option<String>,
     /// This client and the host can't work together until one of them updates.
@@ -135,6 +137,7 @@ impl App {
             url,
             host: String::new(),
             home: String::new(),
+            host_version: String::new(),
             online: false,
             error: None,
             mismatch: None,

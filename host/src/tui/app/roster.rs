@@ -2,9 +2,13 @@
 //! sorted by name, then bots in none), and moving through it.
 
 use std::cmp::Reverse;
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
-use super::{App, Bot};
+use super::super::manage::{Submit, section_fields};
+use super::{App, Bot, Overlay};
+
+/// The first host with roster sections (`section`, `renameSection`).
+const SECTIONS_SINCE: &str = "2.23.0";
 
 /// One line of the roster.
 pub enum RosterLine<'a> {
@@ -136,11 +140,56 @@ impl App {
             self.folded.insert(name);
         }
     }
+
+    /// `w`: "Move to section" for the selected bot: one of the sections, a new name, or empty for none.
+    pub(super) fn ask_section(&mut self) {
+        if self.bot().is_none() || !self.sections_supported() {
+            return;
+        }
+        let Some(bot) = self.bot() else { return };
+        let names: BTreeSet<&str> = self.bots.values().filter_map(|o| o.section.as_deref()).collect();
+        let mut note = "Empty takes it out of its section; a new name makes one.".to_owned();
+        if !names.is_empty() {
+            let list: Vec<&str> = names.into_iter().collect();
+            note = format!("{note} Sections: {}", list.join(", "));
+        }
+        let fields = section_fields("Move to section", note, bot.section.as_deref(), Submit::Section(bot.id.clone()));
+        self.overlays.push(Overlay::Fields(Box::new(fields)));
+    }
+
+    /// `W`: "Rename section" for the section under the cursor: an existing name merges the two, empty
+    /// removes the section (its bots stay).
+    pub(super) fn ask_rename_section(&mut self) {
+        if self.bot().is_none() || !self.sections_supported() {
+            return;
+        }
+        let Some(name) = self.bot().and_then(Bot::shown_section).map(str::to_owned) else {
+            self.flash(NOT_IN_A_SECTION);
+            return;
+        };
+        let note = "Empty removes the section; its bots stay. A name in use merges them.".to_owned();
+        let fields = section_fields("Rename section", note, Some(name.as_str()), Submit::RenameSection(name.clone()));
+        self.overlays.push(Overlay::Fields(Box::new(fields)));
+    }
+
+    /// Whether the host has sections; says what to update when it doesn't.
+    fn sections_supported(&mut self) -> bool {
+        if self.host_version.is_empty() {
+            self.flash("Still connecting: try again in a moment.");
+            return false;
+        }
+        let supported = crate::compat::at_least(&self.host_version, SECTIONS_SINCE);
+        if !supported {
+            let why = format!("Update Codync on {}: sections need {SECTIONS_SINCE} or newer.", self.host);
+            self.flash(&why);
+        }
+        supported
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::super::{Bot, test_app};
+    use super::super::{Bot, Overlay, test_app};
     use super::{App, NOT_IN_A_SECTION, RosterLine, cursor_line, roster_lines};
     use serde_json::json;
 
@@ -225,5 +274,29 @@ mod tests {
         app.selected = None;
         app.toggle_section();
         assert!(app.hint.is_none(), "nothing selected: nothing to say");
+    }
+
+    #[tokio::test]
+    async fn sections_wait_for_a_host_that_has_them() {
+        let mut app = test_app();
+        add(&mut app, "a", false, Some("Work"), 0, 0);
+        app.ask_section();
+        app.ask_rename_section();
+        assert!(app.overlays.is_empty() && app.hint.is_none(), "nothing selected: silent, like z");
+        app.selected = Some("a".into());
+        app.ask_section();
+        assert!(app.overlays.is_empty(), "no hello yet: the host's version is unknown");
+        assert_eq!(app.hint.as_ref().map(|(s, _)| s.as_str()), Some("Still connecting: try again in a moment."));
+        app.host_version = "2.22.2".into();
+        app.ask_section();
+        assert!(app.overlays.is_empty(), "an older host would drop the name");
+        app.host_version = "2.23.0".into();
+        app.ask_section();
+        let Some(Overlay::Fields(f)) = app.overlays.last() else { panic!("the section prompt") };
+        assert_eq!((f.title.as_str(), f.inputs[0].ed.text.as_str()), ("Move to section", "Work"));
+        app.overlays.clear();
+        app.ask_rename_section();
+        let Some(Overlay::Fields(f)) = app.overlays.last() else { panic!("the rename prompt") };
+        assert_eq!((f.title.as_str(), f.inputs[0].placeholder.as_str()), ("Rename section", "Section name"));
     }
 }
