@@ -117,10 +117,13 @@ pub(crate) async fn start_agent(command: &str, cwd: &str, env: &[(String, String
                 // `session.compaction`: tell us when the agent summarizes its context.
                 // `parameterizedModelPicker`: Cursor lists plain models with their options
                 // (effort, fast…) instead of one fixed variant each; model discovery asks the same.
+                // `elicitation.form`: the agent may ask the user through a form, shown as a question card
+                // (`question`); Claude's adapter only offers AskUserQuestion when it's declared.
                 "clientCapabilities": {
                     "fs": {"readTextFile": false, "writeTextFile": false},
                     "terminal": false,
                     "session": {"compaction": {}},
+                    "elicitation": {"form": {}},
                     "_meta": {"parameterizedModelPicker": true},
                 },
                 "clientInfo": {"name": "codync", "title": "Codync", "version": env!("CARGO_PKG_VERSION")},

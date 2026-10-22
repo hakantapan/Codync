@@ -16,6 +16,8 @@ pub(super) enum Answer {
     Agent(Value),
     /// A Codync tool (`Cmd::Approve`): true when the user allowed it.
     Codync(oneshot::Sender<bool>),
+    /// The agent's `elicitation/create` (a question card), by its JSON-RPC id.
+    Elicit(Value),
 }
 
 impl Actor {
@@ -49,6 +51,8 @@ impl Actor {
                 let acp = conn.acp.clone();
                 if method == "session/request_permission" && self.turn.is_some() {
                     self.on_permission(id, params).await;
+                } else if method == "elicitation/create" && self.turn.is_some() {
+                    self.on_elicit(id, params).await;
                 } else {
                     let _ = acp.respond_error(id, -32601, &format!("{method} is not supported by Codync")).await;
                 }
@@ -208,16 +212,20 @@ impl Actor {
         self.show_card(title, data, Answer::Codync(reply));
     }
 
-    /// Posts an approval card in the turn's lane and tells the user it needs them.
-    fn show_card(&mut self, title: &str, data: Value, answer: Answer) {
+    /// Posts an approval or question card in the turn's lane and tells the user it needs them.
+    pub(super) fn show_card(&mut self, title: &str, data: Value, answer: Answer) {
         let turn = self.turn.unwrap_or(0);
         self.close_seg();
-        if let Some(e) = self.add(EntryKind::Permission, turn, data) {
+        let (kind, activity) = match answer {
+            Answer::Elicit(_) => (EntryKind::Question, "Has a question"),
+            Answer::Agent(_) | Answer::Codync(_) => (EntryKind::Permission, "Needs approval"),
+        };
+        if let Some(e) = self.add(kind, turn, data) {
             self.perms.insert(e.id, answer);
         }
         self.hub.set_runtime(&self.cfg.id, |r| {
             r.status = BotStatus::NeedsInput;
-            r.activity = format!("Needs approval: {title}");
+            r.activity = format!("{activity}: {title}");
         });
         // Tapping it opens where the card is: the group, for a room turn.
         let target = self.hub.store.bot(&self.lane.chat).ok().flatten().map_or_else(|| self.cfg.clone(), |r| r.config);
@@ -263,12 +271,24 @@ impl Actor {
                     status = "expired";
                 }
             }
+            Answer::Elicit(rpc_id) => {
+                // Only a turn that ends gets here (`cancel_turn`): the card's answers go through `answer_question`.
+                status = "cancelled";
+                if let Some(conn) = &self.conn {
+                    let _ = conn.acp.respond(rpc_id, json!({"action": "cancel"})).await;
+                }
+            }
         }
         if let Some(mut e) = self.hub.store.entry(entry_id) {
             e.data["status"] = status.into();
             e.data["selected"] = option_id.into();
             self.hub.set_entry(entry_id, &e.data);
         }
+        self.after_answer();
+    }
+
+    /// Once the last open card is answered, the bot works on.
+    pub(super) fn after_answer(&self) {
         if self.perms.is_empty() && self.turn.is_some() {
             self.hub.set_runtime(&self.cfg.id, |r| {
                 r.status = BotStatus::Working;

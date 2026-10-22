@@ -24,6 +24,8 @@ pub enum EntryKind {
     Tool,
     Plan,
     Permission,
+    /// An agent's question (`elicitation/create`), answered on its card (see `agent::bot::question`).
+    Question,
     Notice,
 }
 
@@ -36,6 +38,7 @@ impl EntryKind {
             Self::Tool => "tool",
             Self::Plan => "plan",
             Self::Permission => "permission",
+            Self::Question => "question",
             Self::Notice => "notice",
         }
     }

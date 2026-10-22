@@ -273,13 +273,13 @@ impl Store {
         logged("last spoke", n).unwrap_or(0)
     }
 
-    /// Permission cards left `pending` (and sends left `queued`) by a crash or restart
+    /// Permission and question cards left `pending` (and sends left `queued`) by a crash or restart
     /// can never be honored; returns how many were closed out.
     pub fn expire_pending(&self) -> Result<usize> {
         let ids: Vec<String> = {
             let c = self.db.locked();
             let mut st = c.prepare(
-                "SELECT id FROM entries WHERE (kind = 'permission' AND json_extract(data, '$.status') = 'pending')
+                "SELECT id FROM entries WHERE (kind IN ('permission', 'question') AND json_extract(data, '$.status') = 'pending')
                   OR (kind = 'user' AND json_extract(data, '$.status') = 'queued')
                   OR (kind = 'notice' AND json_extract(data, '$.delegationId') IS NOT NULL
                       AND json_extract(data, '$.status') IN ('queued', 'sent'))",
@@ -364,11 +364,15 @@ mod tests {
     fn restart_expires_pending_cards_and_queued_sends() {
         let s = temp_store();
         s.insert_entry(&Lane::main("b1"), EntryKind::Permission, 1, &serde_json::json!({"status": "pending"})).unwrap();
+        let card = s
+            .insert_entry(&Lane::main("b1"), EntryKind::Question, 1, &serde_json::json!({"status": "pending"}))
+            .unwrap();
         let q =
             s.insert_entry(&Lane::main("b1"), EntryKind::User, 2, &serde_json::json!({"status": "queued"})).unwrap();
         s.insert_entry(&Lane::main("b1"), EntryKind::User, 1, &serde_json::json!({"status": "sent"})).unwrap();
-        assert_eq!(s.expire_pending().unwrap(), 2);
+        assert_eq!(s.expire_pending().unwrap(), 3);
         assert_eq!(s.entry(&q.id).unwrap().data["status"], "failed");
+        assert_eq!(s.entry(&card.id).unwrap().data["status"], "expired");
         assert_eq!(s.expire_pending().unwrap(), 0, "idempotent");
     }
 

@@ -226,6 +226,16 @@ pub(super) async fn call(hub: &Arc<Hub>, method: &str, b: Value) -> Result<Contr
             hub.send_cmd(bot, Cmd::Permission { entry_id: entry_id.to_owned(), option_id })?;
             json!({})
         }
+        "respondQuestion" => {
+            let entry_id = str_arg(&b, "entryId")?;
+            let e = hub.store.entry(entry_id).ok_or_else(|| anyhow!("unknown card"))?;
+            // `{field key: [values]}`; none skips the question.
+            let answers = b.get("answers").filter(|a| a.is_object()).cloned();
+            // A card in a group belongs to the bot that asked.
+            let bot = e.data["author"].as_str().unwrap_or(&e.bot_id);
+            hub.send_cmd(bot, Cmd::Question { entry_id: entry_id.to_owned(), answers })?;
+            json!({})
+        }
         _ => return Ok(ControlFlow::Continue(b)),
     }))
 }

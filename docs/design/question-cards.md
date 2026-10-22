@@ -52,7 +52,7 @@ Declaring the capability also forwards MCP servers' form elicitations through th
    ```
 
    It is posted with the existing `show_card`, so the bot shows **Needs you**, the push alert fires and the card sits in the turn's lane. `Answer` gains `Elicit(rpc_id)` beside `Agent` and `Codync`.
-5. **Answer.** New API method `respondQuestion {entryId, action, content?}` (`host/src/api/bots.rs`; like `respondPermission`, the entry names its bot, `data.author` in groups) → `Cmd::Question` → `answer_question`. It replies `{action, content}` to the agent and sets the entry's `status` to `answered`, `declined` or `cancelled` and `answer` to `content`. A second answer for the same entry finds no pending `Answer` and does nothing.
+5. **Answer.** New API method `respondQuestion {entryId, answers?}` (`answers`: `{field key: [values]}`, chosen option values or the typed text; none skips) (`host/src/api/bots.rs`; like `respondPermission`, the entry names its bot, `data.author` in groups) → `Cmd::Question` → `answer_question`. It replies `{action, content}` to the agent and sets the entry's `status` to `answered`, `declined` or `cancelled` and `answer` to one display line per answered field. A second answer for the same entry finds no pending `Answer` and does nothing.
 6. **Cancel.** `answer_permission(id, None)` on an `Elicit` entry (`cancel_turn`, Stop, new session) replies `{"action": "cancel"}` and marks the card `cancelled`.
 
 ### Text fallback

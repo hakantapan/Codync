@@ -21,6 +21,8 @@ mod fast_mode;
 mod files;
 mod launch;
 mod lifecycle;
+mod question;
+mod question_form;
 mod queue;
 mod session;
 mod turn;
@@ -92,6 +94,11 @@ pub enum Cmd {
     Permission {
         entry_id: String,
         option_id: Option<String>,
+    },
+    /// `respondQuestion`: a question card's answers (`{field key: [values]}`), `None` to skip it.
+    Question {
+        entry_id: String,
+        answers: Option<Value>,
     },
     /// A Codync tool asks the user before it acts (`chat::manage`), on the agent's kind of approval card.
     Approve {
