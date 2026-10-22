@@ -249,6 +249,12 @@ public extension HostClient {
         let _: Empty = try await call("respondPermission", Body(entryId: entryId, optionId: optionId))
     }
 
+    /// A question card's answers (`[field key: values]`); nil skips the question.
+    func respondQuestion(entryId: String, answers: QuestionAnswers?) async throws {
+        struct Body: Encodable { var entryId: String; var answers: QuestionAnswers? }
+        let _: Empty = try await call("respondQuestion", Body(entryId: entryId, answers: answers))
+    }
+
     /// Push tickets are bound to this device's key; `pushKey` lets the host seal notification text (§6.7).
     func registerDevice(ticket: String, relay: String, name: String, pushKey: String?, ctx: String) async throws {
         struct Body: Encodable { var ticket: String; var relay: String; var name: String; var pushKey: String?; var ctx: String }

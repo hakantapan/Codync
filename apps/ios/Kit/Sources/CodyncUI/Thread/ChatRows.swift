@@ -45,6 +45,14 @@ struct ChatRow: View {
                 }
             }
             .padding(.top, 12)
+        case "question":
+            VStack(alignment: .leading, spacing: 4) {
+                if chat?.isGroup == true { AuthorLabel(botId: entry.data.author) }
+                QuestionCard(entry: entry, answering: model.answering[entry.id] != nil) { answers in
+                    model.respondQuestion(entry, answers: answers)
+                }
+            }
+            .padding(.top, 12)
         default:
             if let request = entry.data.connectionRequest {
                 ConnectionRequestCard(entry: entry, request: request).padding(.top, 12)

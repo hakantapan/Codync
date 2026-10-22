@@ -95,7 +95,7 @@ private struct TraceRow: View {
                     .font(.footnote)
                 }
             }
-        case "permission":
+        case "permission", "question":
             Label(d.title ?? "Approval", systemImage: "hand.raised")
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondary)

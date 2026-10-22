@@ -117,6 +117,15 @@ extension BotStore {
         }
     }
 
+    /// A question card's answers (`[field key: values]`), or nil to skip it.
+    public func respondQuestion(_ entry: Entry, answers: QuestionAnswers?) {
+        answer(entry, answers == nil ? "skip" : "submit") {
+            try await $0.respondQuestion(entryId: entry.id, answers: answers)
+            // The card's own update follows on the events stream; hold the spinner until then.
+            try? await Task.sleep(for: .seconds(2))
+        }
+    }
+
     /// Views register only while visible in an active scene. Multiple windows may
     /// read the same conversation without unregistering each other.
     func setReading(_ token: UUID, botId: String, active: Bool) {
