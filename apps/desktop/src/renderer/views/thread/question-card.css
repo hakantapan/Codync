@@ -1,0 +1,25 @@
+/* The question card: the approval card's frame (permission-card.css) with choice rows, typed answers and actions. */
+.question-option {
+  padding: 8px 14px;
+  text-align: left;
+}
+.question-text-row {
+  width: 100%;
+  padding: 4px 2px;
+  text-align: left;
+}
+.question-text-field {
+  animation: question-open 160ms ease-out;
+}
+@keyframes question-open {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .question-text-field { animation: none; }
+}
+.question-card-actions {
+  justify-content: flex-end;
+}
+.question-card-outcome {
+  white-space: pre-line;
+}

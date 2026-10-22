@@ -16,6 +16,7 @@ import { AttachmentList } from './Attachments'
 import { relativeTime } from './chat-items'
 import { MarkdownText } from './Markdown'
 import { PermissionCard } from './PermissionCard'
+import { QuestionCard } from './QuestionCard'
 import { ConnectionRequestCard } from '../marketplace/ConnectionRequestCard'
 import { AgentSwitchNotice, HandoffNotice } from './HandoffNotice'
 
@@ -60,6 +61,13 @@ export const ChatRow = memo(function ChatRow({ entry, groupStart, chat, openTrac
           <LivePermission entry={entry} />
         </VStack>
       )
+    case 'question':
+      return (
+        <VStack gap={4} className="chat-row group-start">
+          {chat && isGroup(chat) ? <AuthorLabel botId={entry.data.author} /> : null}
+          <LiveQuestion entry={entry} />
+        </VStack>
+      )
     default:
       if (entry.data.connectionRequest) return <div className="chat-row group-start"><ConnectionRequestCard entry={entry} /></div>
       if (entry.data.handoff) return <div className="chat-row notice"><HandoffNotice entry={entry} card={entry.data.handoff} /></div>
@@ -72,6 +80,12 @@ export const ChatRow = memo(function ChatRow({ entry, groupStart, chat, openTrac
 function LivePermission({ entry }: { entry: Entry }) {
   const store = useLiveStore()
   return <PermissionCard entry={entry} hostName={store.hostName} answering={store.answering.get(entry.id) ?? null} respond={(o) => store.respond(entry, o)} />
+}
+
+/** Follows the store: the card shows a spinner while its answers are on their way. */
+function LiveQuestion({ entry }: { entry: Entry }) {
+  const store = useLiveStore()
+  return <QuestionCard entry={entry} answering={store.answering.has(entry.id)} respond={(a) => store.respondQuestion(entry, a)} />
 }
 
 /** Who wrote a message in a group: their avatar and name in their color. */

@@ -129,6 +129,7 @@ function TraceRow({ entry, unfolded }: { entry: Entry; unfolded: boolean }) {
         </VStack>
       )
     case 'permission':
+    case 'question':
       return (
         <Label icon={<Icon name="hand.raised" size={11} color="var(--secondary)" />} tone="secondary">
           {d.title ?? 'Approval'}

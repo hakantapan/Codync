@@ -8,6 +8,7 @@ import {
   type Entry,
   type GroupDraft,
   type Hello,
+  type QuestionAnswers,
   type ReplyQuote,
   type ScreenState,
   type Usage,
@@ -212,6 +213,15 @@ export class BotStore extends BotSync {
   respond(entry: Entry, option: string | null) {
     this.answer(entry, option ?? '', async (c) => {
       await c.call('respondPermission', { entryId: entry.id, optionId: option })
+      // The card's own update follows on the events stream; hold the spinner until then.
+      await sleep(2000)
+    })
+  }
+
+  /** A question card's answers (`{field key: values}`), or `null` to skip it. */
+  respondQuestion(entry: Entry, answers: QuestionAnswers | null) {
+    this.answer(entry, answers ? 'submit' : 'skip', async (c) => {
+      await c.call('respondQuestion', { entryId: entry.id, answers })
       // The card's own update follows on the events stream; hold the spinner until then.
       await sleep(2000)
     })
