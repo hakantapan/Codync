@@ -1,5 +1,5 @@
 //! A real host and a scripted agent asking through `elicitation/create` (Claude Code's AskUserQuestion):
-//! the question card, answering and skipping it, Stop, and a form the card can't show.
+//! the question card, answering and skipping it, Stop, a form the card can't show, and questions nobody answers.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)] // test code: failing loudly is the point
 
@@ -122,6 +122,22 @@ async fn a_form_the_card_cannot_show_is_declined() {
     let host = Host::start().await;
     let bot = host.fixture_bot("Counter", "question_agent.py", "number").await;
     host.call("send", json!({"botId": bot, "text": "go", "clientNonce": "n1"})).await;
+    assert_eq!(outcome(&host, &bot).await["answer"], json!({"action": "decline"}));
+    let history = host.call("history", json!({"botId": bot})).await;
+    assert!(history["entries"].as_array().unwrap().iter().all(|e| e["kind"] != "question"));
+}
+
+#[tokio::test]
+async fn a_question_in_a_routine_run_is_declined_without_a_card() {
+    if python_missing() {
+        return;
+    }
+    let host = Host::start().await;
+    let bot = host.fixture_bot("Asker", "question_agent.py", "ask").await;
+    let routine = json!({"botId": bot, "name": "Ask", "instruction": "go", "triggers": [{"type": "webhook"}]});
+    let id = host.call("saveRoutine", routine).await["routine"]["id"].clone();
+    host.call("runRoutine", json!({"botId": bot, "id": id})).await;
+    // Nobody watches a run: the question is skipped at once.
     assert_eq!(outcome(&host, &bot).await["answer"], json!({"action": "decline"}));
     let history = host.call("history", json!({"botId": bot})).await;
     assert!(history["entries"].as_array().unwrap().iter().all(|e| e["kind"] != "question"));
