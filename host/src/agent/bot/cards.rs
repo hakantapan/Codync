@@ -119,7 +119,12 @@ impl Actor {
     }
 
     pub(super) async fn answer_permission(&mut self, entry_id: &str, option_id: Option<String>) {
+        // A question's answers go through `answer_question`: picking an option here must not cancel it.
+        if option_id.is_some() && matches!(self.perms.get(entry_id), Some(Answer::Elicit(_))) {
+            return;
+        }
         let Some(answer) = self.perms.remove(entry_id) else { return };
+        let question = matches!(answer, Answer::Elicit(_));
         let mut status = if option_id.is_some() { "answered" } else { "cancelled" };
         match answer {
             Answer::Agent(rpc_id) => {
@@ -138,16 +143,18 @@ impl Actor {
                 }
             }
             Answer::Elicit(rpc_id) => {
-                // Only a turn that ends gets here (`cancel_turn`): the card's answers go through `answer_question`.
-                status = "cancelled";
+                // No option reaches here (returned above): the card is cancelled, as when its turn ends (`cancel_turn`).
                 if let Some(conn) = &self.conn {
+                    // A failed write means the agent exited; `Incoming::Closed` ends the turn.
                     let _ = conn.acp.respond(rpc_id, json!({"action": "cancel"})).await;
                 }
             }
         }
         if let Some(mut e) = self.hub.store.entry(entry_id) {
             e.data["status"] = status.into();
-            e.data["selected"] = option_id.into();
+            if !question {
+                e.data["selected"] = option_id.into();
+            }
             self.hub.set_entry(entry_id, &e.data);
         }
         self.after_answer();

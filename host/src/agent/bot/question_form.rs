@@ -31,27 +31,28 @@ fn field(key: &str, p: &Value) -> Option<Value> {
     Some(json!({"key": key, "kind": kind, "title": p["title"], "description": p["description"], "options": options}))
 }
 
-/// A choice field's options: titled `oneOf` / `anyOf` entries, or a bare `enum`.
+/// A choice field's options: titled `oneOf` / `anyOf` entries, or a bare `enum`. A list with no string options
+/// to pick from is no choice at all (`None`).
 fn options(p: &Value) -> Option<Vec<Value>> {
-    if let Some(titled) = p["oneOf"].as_array().or_else(|| p["anyOf"].as_array()) {
-        return Some(
-            titled
-                .iter()
-                .filter_map(|o| {
-                    let value = o["const"].as_str()?;
-                    let label = o["title"].as_str().unwrap_or(value);
-                    Some(json!({"value": value, "label": label, "description": o["description"]}))
-                })
-                .collect(),
-        );
-    }
-    let bare = p["enum"].as_array()?;
-    Some(bare.iter().filter_map(Value::as_str).map(|v| json!({"value": v, "label": v, "description": null})).collect())
+    let options: Vec<Value> = if let Some(titled) = p["oneOf"].as_array().or_else(|| p["anyOf"].as_array()) {
+        titled
+            .iter()
+            .filter_map(|o| {
+                let value = o["const"].as_str()?;
+                let label = o["title"].as_str().unwrap_or(value);
+                Some(json!({"value": value, "label": label, "description": o["description"]}))
+            })
+            .collect()
+    } else {
+        let bare = p["enum"].as_array()?;
+        bare.iter().filter_map(Value::as_str).map(|v| json!({"value": v, "label": v, "description": null})).collect()
+    };
+    (!options.is_empty()).then_some(options)
 }
 
 /// The form's content for the card's answers (`{field key: [chosen values or typed text]}`), and what the
 /// answered card shows: one line per answered field. Blank answers, and values that aren't one of a choice
-/// field's options, are left out (the answers come from a client).
+/// field's options, are left out (the answers come from a client). Only a `multi` field keeps more than one value.
 pub(super) fn content(fields: &[Value], answers: &Value) -> (Value, Vec<String>) {
     let mut content = Map::new();
     let mut lines = Vec::new();
@@ -59,7 +60,8 @@ pub(super) fn content(fields: &[Value], answers: &Value) -> (Value, Vec<String>)
         let Some(key) = f["key"].as_str() else { continue };
         let options = f["options"].as_array().map_or(&[][..], Vec::as_slice);
         let label = |v: &str| options.iter().find(|o| o["value"] == v).and_then(|o| o["label"].as_str());
-        let picked: Vec<&str> = answers[key]
+        let multi = f["kind"] == "multi";
+        let mut picked: Vec<&str> = answers[key]
             .as_array()
             .into_iter()
             .flatten()
@@ -67,8 +69,11 @@ pub(super) fn content(fields: &[Value], answers: &Value) -> (Value, Vec<String>)
             .map(str::trim)
             .filter(|v| !v.is_empty() && (f["kind"] == "text" || label(v).is_some()))
             .collect();
+        if !multi {
+            picked.truncate(1);
+        }
         let Some(first) = picked.first() else { continue };
-        content.insert(key.to_owned(), if f["kind"] == "multi" { json!(picked) } else { json!(first) });
+        content.insert(key.to_owned(), if multi { json!(picked) } else { json!(first) });
         lines.push(picked.iter().map(|v| label(v).unwrap_or(v)).collect::<Vec<_>>().join(", "));
     }
     (Value::Object(content), lines)
@@ -119,6 +124,14 @@ mod tests {
     }
 
     #[test]
+    fn a_choice_list_without_options_is_no_choice() {
+        let text = fields(&json!({"properties": {"s": {"type": "string", "oneOf": [{"title": "no const"}]}}})).unwrap();
+        assert_eq!((&text[0]["kind"], &text[0]["options"]), (&json!("text"), &json!([])));
+        assert!(fields(&json!({"properties": {"a": {"type": "array", "items": {"anyOf": []}}}})).is_none());
+        assert!(fields(&json!({"properties": {"a": {"type": "array", "items": {"enum": [1, 2]}}}})).is_none());
+    }
+
+    #[test]
     fn answers_become_the_forms_content() {
         let fields = fields(&ask_user_question()).unwrap();
         let answers =
@@ -126,6 +139,14 @@ mod tests {
         let (content, lines) = content(&fields, &answers);
         assert_eq!(content, json!({"question_0": "SQLite", "question_1": ["Cache", "Queue"]}));
         assert_eq!(lines, ["SQLite", "Cache, Queue"]);
+    }
+
+    #[test]
+    fn a_single_field_keeps_only_its_first_value() {
+        let fields = fields(&ask_user_question()).unwrap();
+        let (content, lines) = content(&fields, &json!({"question_0": ["SQLite", "PostgreSQL"]}));
+        assert_eq!(content, json!({"question_0": "SQLite"}));
+        assert_eq!(lines, ["SQLite"]);
     }
 
     #[test]

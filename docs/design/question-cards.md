@@ -32,8 +32,8 @@ Declaring the capability also forwards MCP servers' form elicitations through th
 ## Host
 
 1. **Capability.** `launch.rs` adds `"elicitation": {"form": {}}` to `clientCapabilities`.
-2. **Request.** `on_incoming` routes `elicitation/create` during a turn to a new `on_elicit`. It is never auto-answered, including under `Permission::Auto`: a question has no safe default. Outside a turn it keeps the `-32601` reply.
-3. **Schema → fields.** A new `host/src/agent/bot/question.rs` turns `requestedSchema` into a flat list, so no client parses JSON Schema:
+2. **Request.** `on_incoming` routes `elicitation/create` during a turn to a new `on_elicit`. It is never auto-answered, including under `Permission::Auto`: a question has no safe default. Outside a turn it keeps the `-32601` reply. A routine run or a bot-to-bot request has nobody to answer, so its question is declined at once and posts no card; group turns still get cards, since the user is in the room.
+3. **Schema → fields.** A new `host/src/agent/bot/question_form.rs` turns `requestedSchema` into a flat list, so no client parses JSON Schema:
 
    | Schema property | `kind` |
    |---|---|
@@ -86,7 +86,7 @@ Clients that don't know `"question"` skip the entry (kinds are plain strings eve
 
 ## Tests
 
-- Host: `host/tests/fake_agent.py` sends `elicitation/create`. Integration tests check the card is posted, `respondQuestion` returns `{action: "accept", content}` to the agent, `Permission::Auto` doesn't answer it, the text fallback answers it, and Stop cancels it. Unit tests for the schema → fields mapping, including the decline cases.
+- Host: `host/tests/fixtures/question_agent.py` sends `elicitation/create`. Integration tests check the card is posted, `respondQuestion` returns `{action: "accept", content}` to the agent, `Permission::Auto` doesn't answer it, the text fallback answers it, and Stop cancels it. Unit tests for the schema → fields mapping, including the decline cases.
 - Desktop: the one-tap vs Submit rule and the answer payload.
 - iPhone: decoding `fields` and `answer` on `EntryData`.
 - E2E: on the desktop app and the iPhone, ask a Claude bot to "ask me a multiple-choice question", once single-select and once multi-select with two questions.

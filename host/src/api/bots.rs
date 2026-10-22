@@ -4,7 +4,7 @@ use super::str_arg;
 use crate::agent::bot::Cmd;
 use crate::hub::Hub;
 use crate::store::{EntryKind, Lane};
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, anyhow, bail, ensure};
 use serde_json::{Value, json};
 use std::ops::ControlFlow;
 use std::sync::Arc;
@@ -229,8 +229,14 @@ pub(super) async fn call(hub: &Arc<Hub>, method: &str, b: Value) -> Result<Contr
         "respondQuestion" => {
             let entry_id = str_arg(&b, "entryId")?;
             let e = hub.store.entry(entry_id).ok_or_else(|| anyhow!("unknown card"))?;
-            // `{field key: [values]}`; none skips the question.
-            let answers = b.get("answers").filter(|a| a.is_object()).cloned();
+            // `{field key: [values]}`; missing or null skips the question, anything else malformed is refused.
+            let answers = b.get("answers").filter(|a| !a.is_null()).cloned();
+            ensure!(
+                answers.as_ref().is_none_or(|a| a
+                    .as_object()
+                    .is_some_and(|m| m.values().all(|v| v.as_array().is_some_and(|l| l.iter().all(Value::is_string))))),
+                "answers must map each field to a list of strings"
+            );
             // A card in a group belongs to the bot that asked.
             let bot = e.data["author"].as_str().unwrap_or(&e.bot_id);
             hub.send_cmd(bot, Cmd::Question { entry_id: entry_id.to_owned(), answers })?;

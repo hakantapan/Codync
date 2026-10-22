@@ -96,15 +96,15 @@ impl Store {
         Ok(rev)
     }
 
-    /// Final agent messages + pending permission cards newer than what the user has read. A reacted-to message
-    /// doesn't count again when it changes: the user reacted, so they have seen it. A bot's reaction isn't a change
-    /// either (`contentRev`, see `Hub::bot_react`).
+    /// Final agent messages + pending permission and question cards newer than what the user has read. A reacted-to
+    /// message doesn't count again when it changes: the user reacted, so they have seen it. A bot's reaction isn't a
+    /// change either (`contentRev`, see `Hub::bot_react`).
     pub fn unread(&self, id: &str, read_rev: i64) -> i64 {
         let c = self.db.locked();
         let n = c.query_row(
             "SELECT COUNT(*) FROM entries WHERE bot_id = ?1 AND
                ((kind = 'agent' AND json_extract(data, '$.final') = 1) OR
-                (kind = 'permission' AND json_extract(data, '$.status') = 'pending')) AND
+                (kind IN ('permission', 'question') AND json_extract(data, '$.status') = 'pending')) AND
                json_extract(data, '$.reactions') IS NULL AND
                COALESCE(json_extract(data, '$.contentRev'), rev) > ?2",
             params![id, read_rev],
@@ -144,10 +144,8 @@ mod tests {
     use crate::store::model::{BotKind, EntryKind, Lane, Permission};
     use crate::store::tests::temp_store;
 
-    #[test]
-    fn rev_sync_and_unread() {
-        let s = temp_store();
-        let cfg = BotConfig {
+    fn cfg() -> BotConfig {
+        BotConfig {
             id: "b1".into(),
             kind: BotKind::Agent,
             members: vec![],
@@ -177,7 +175,13 @@ mod tests {
             harness_memory: false,
             auto_name: false,
             created_at: 0,
-        };
+        }
+    }
+
+    #[test]
+    fn rev_sync_and_unread() {
+        let s = temp_store();
+        let cfg = cfg();
         s.save_bot(&cfg).unwrap();
         let u = s.insert_entry(&Lane::main("b1"), EntryKind::User, 1, &serde_json::json!({"text": "hi"})).unwrap();
         let a = s
@@ -207,5 +211,17 @@ mod tests {
         assert!(s.insert_entry(&Lane::main("b1"), EntryKind::Notice, 3, &reply).is_err());
         s.save_bot(&cfg).unwrap();
         assert!(s.bot("b1").unwrap().unwrap().deleted);
+    }
+
+    #[test]
+    fn a_pending_question_card_is_unread_until_answered() {
+        let s = temp_store();
+        s.save_bot(&cfg()).unwrap();
+        let card = serde_json::json!({"title": "Which?", "fields": [], "status": "pending", "answer": null});
+        let q = s.insert_entry(&Lane::main("b1"), EntryKind::Question, 1, &card).unwrap();
+        assert_eq!(s.unread("b1", 0), 1, "a card waiting for the user counts");
+        let answered = serde_json::json!({"title": "Which?", "fields": [], "status": "answered", "answer": ["A"]});
+        s.update_entry(&q.id, &answered).unwrap();
+        assert_eq!(s.unread("b1", 0), 0, "an answered card doesn't");
     }
 }

@@ -40,6 +40,7 @@ quotes itself.
 | `stop` | `botId` | For a group: ends its room turn and stops members working in it. |
 | `react` | `entryId, emoji` | Toggles the user's reaction on a chat message (`data.reactions`, oldest first, at most 8). A reacted-to message never turns unread again. The bot isn't told, except in a group, where members see reactions on the room lines they're shown. Bots react themselves with the `chat` server's `react` ([bot reactions](chat-messages.md#bot-reactions)). |
 | `respondPermission` | `entryId, optionId?` | Routed to `data.author`, so cards in a group reach the bot that asked. |
+| `respondQuestion` | `entryId, answers?` | Routed to `data.author` the same way. `answers` is `{field key: [values]}`; missing or null skips the question, anything else malformed is refused. |
 | `markRead` | `botId` | Reads the chat. A no-op when nothing there is unread, so clients call it whenever a chat is on screen. `send` marks its chat read. |
 
 ## How a group answers (`host/src/chat/group.rs`, Grok Bot's design)

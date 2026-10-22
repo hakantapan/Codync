@@ -58,6 +58,11 @@ async fn one_tap_answer_reaches_the_agent() {
     // New bots approve on their own (`Permission::Auto`); a question still waits for the user.
     let bot = host.fixture_bot("Asker", "question_agent.py", "ask").await;
     let card = ask(&host, &bot).await;
+    // Answers that aren't `{field: [strings]}` are refused, and the card keeps waiting.
+    let error =
+        host.refused("respondQuestion", json!({"entryId": card["id"], "answers": {"question_0": "PostgreSQL"}})).await;
+    assert!(error.contains("list of strings"), "{error}");
+    assert_eq!(wait_for(&host, &bot, |e| e["id"] == card["id"]).await["data"]["status"], "pending");
     assert_eq!(card["data"]["title"], "Which database?");
     let fields = card["data"]["fields"].as_array().unwrap();
     assert_eq!(fields[0]["kind"], "single");
@@ -66,7 +71,12 @@ async fn one_tap_answer_reaches_the_agent() {
         json!({"value": "PostgreSQL", "label": "PostgreSQL", "description": "Relational"})
     );
     assert_eq!(fields[1]["kind"], "text");
-    assert_eq!(host.snapshot().await["bots"][0]["status"], "needsInput");
+    // The roster follows the card a moment later.
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while host.snapshot().await["bots"][0]["status"] != "needsInput" {
+        assert!(Instant::now() < deadline, "the bot never showed it needs input");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
 
     host.call("respondQuestion", json!({"entryId": card["id"], "answers": {"question_0": ["PostgreSQL"]}})).await;
     let got = outcome(&host, &bot).await;
