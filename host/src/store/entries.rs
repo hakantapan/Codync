@@ -90,6 +90,17 @@ impl Store {
         Ok(c.query_row(&format!("SELECT {ENTRY_COLS} FROM entries WHERE id = ?1"), [id], row_entry).optional()?)
     }
 
+    /// Moves an entry into `turn`, like [`Self::update_entry`] for its `turn` column.
+    pub fn update_entry_turn(&self, id: &str, turn: i64) -> Result<Option<Entry>> {
+        let c = self.db.locked();
+        let rev = next_rev(&c)?;
+        c.execute(
+            "UPDATE entries SET rev = ?2, turn = ?3, updated_at = ?4 WHERE id = ?1",
+            params![id, rev, turn, now_ms()],
+        )?;
+        Ok(c.query_row(&format!("SELECT {ENTRY_COLS} FROM entries WHERE id = ?1"), [id], row_entry).optional()?)
+    }
+
     /// Moves an entry back in time, for tests of what happens to old entries.
     #[cfg(test)]
     pub fn backdate_entry(&self, id: &str, created_at: i64) {
@@ -342,6 +353,17 @@ mod tests {
         assert_eq!(texts(&["SWIFT", "6"]), ["Swift 6 strict mode is on", "我們用 Swift 6 寫 Codync"]);
         assert_eq!(texts(&["codync", "寫"]), ["我們用 Swift 6 寫 Codync"]);
         assert_eq!(texts(&["narration"]).len(), 0);
+    }
+
+    #[test]
+    fn an_entry_moves_to_another_turn() {
+        let s = temp_store();
+        let main = Lane::main("b1");
+        let e = s.insert_entry(&main, EntryKind::User, 2, &json!({"text": "hi"})).unwrap();
+        let moved = s.update_entry_turn(&e.id, 1).unwrap().unwrap();
+        assert_eq!((moved.turn, moved.data, moved.seq), (1, e.data, e.seq));
+        assert!(moved.rev > e.rev);
+        assert!(s.update_entry_turn("missing", 1).unwrap().is_none());
     }
 
     #[test]

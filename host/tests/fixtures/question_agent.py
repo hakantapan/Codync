@@ -1,6 +1,6 @@
 # ACP agent that asks the user through `elicitation/create`, the way claude-agent-acp asks
 # AskUserQuestion, then replies with JSON: whether the host offered forms, what it answered,
-# and how many prompts it got. `number` asks for a field a question card can't show.
+# and how many prompts it got. `number` asks for a field a question card can't show; `choice` asks a question with no text box.
 import json,sys,threading
 def send(m): sys.stdout.write(json.dumps(m)+"\n"); sys.stdout.flush()
 mode=sys.argv[1] if len(sys.argv)>1 else "ask"
@@ -10,12 +10,13 @@ QUESTION={"type":"object","properties":{
     {"const":"PostgreSQL","title":"PostgreSQL","description":"Relational"},{"const":"SQLite","title":"SQLite"}]},
   "question_0_custom":{"type":"string","title":"Other","description":"Type your own answer"}}}
 NUMBER={"type":"object","properties":{"count":{"type":"integer","title":"How many?"}}}
+CHOICE={"type":"object","properties":{"question_0":QUESTION["properties"]["question_0"]}}
 def upd(u): send({"jsonrpc":"2.0","method":"session/update","params":{"sessionId":sid,"update":u}})
 def turn(rid):
     prompts[0]+=1
     nid[0]+=1; pid=nid[0]
     ev=threading.Event(); pending[pid]=ev
-    schema=NUMBER if mode=="number" else QUESTION
+    schema={"number":NUMBER,"choice":CHOICE}.get(mode,QUESTION)
     send({"jsonrpc":"2.0","id":pid,"method":"elicitation/create","params":{"mode":"form","sessionId":sid,"toolCallId":"t1","message":"Which database?","requestedSchema":schema}})
     ev.wait()
     if ev.answer.get("action")=="cancel":

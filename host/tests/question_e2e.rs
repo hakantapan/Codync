@@ -140,8 +140,25 @@ async fn a_typed_message_answers_the_open_question() {
     assert_eq!(settled(&host, &bot, &card).await["data"]["answer"], json!(["MySQL, please"]));
     let message = wait_for(&host, &bot, |e| e["kind"] == "user" && e["data"]["clientNonce"] == "typed").await;
     assert_eq!(message["data"]["status"], "sent");
+    assert_eq!(message["turn"], card["turn"], "it joins the running turn, not a new one");
     // No second turn followed (it would ask again).
     tokio::time::sleep(Duration::from_millis(500)).await;
     let history = host.call("history", json!({"botId": bot})).await;
     assert_eq!(history["entries"].as_array().unwrap().iter().filter(|e| e["kind"] == "question").count(), 1);
+}
+
+#[tokio::test]
+async fn a_message_skips_a_question_without_a_text_box() {
+    if python_missing() {
+        return;
+    }
+    let host = Host::start().await;
+    let bot = host.fixture_bot("Asker", "question_agent.py", "choice").await;
+    let card = ask(&host, &bot).await;
+    host.call("send", json!({"botId": bot, "text": "MySQL, please", "clientNonce": "typed"})).await;
+    assert_eq!(outcome(&host, &bot).await["answer"], json!({"action": "decline"}));
+    assert_eq!(settled(&host, &bot, &card).await["data"]["status"], "declined");
+    // Not lost: it goes out as the next turn, which asks again.
+    let again = wait_for(&host, &bot, |e| e["kind"] == "question" && e["id"] != card["id"]).await;
+    assert_eq!(again["data"]["status"], "pending");
 }

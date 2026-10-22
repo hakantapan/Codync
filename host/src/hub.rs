@@ -442,7 +442,18 @@ impl Hub {
     /// Updates and broadcasts an entry; failures are logged here, like [`Self::add_entry`].
     pub fn set_entry(&self, id: &str, data: &Value) -> Option<Entry> {
         let _g = self.emit_lock.locked();
-        match self.store.update_entry(id, data) {
+        self.broadcast_update(id, self.store.update_entry(id, data))
+    }
+
+    /// Moves an entry into `turn` and broadcasts it, like [`Self::set_entry`].
+    pub fn set_entry_turn(&self, id: &str, turn: i64) -> Option<Entry> {
+        let _g = self.emit_lock.locked();
+        self.broadcast_update(id, self.store.update_entry_turn(id, turn))
+    }
+
+    /// Sends an updated entry to the clients (the caller holds `emit_lock`); a failure is logged.
+    fn broadcast_update(&self, id: &str, updated: Result<Option<Entry>>) -> Option<Entry> {
+        match updated {
             Ok(e) => {
                 if let Some(e) = &e {
                     let _ = self.events.send(json!({"type": "entry", "rev": e.rev, "entry": e}));

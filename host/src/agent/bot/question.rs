@@ -67,24 +67,36 @@ impl Actor {
     /// A message typed while a question card waits in the turn's lane answers the card's first text field
     /// (`AskUserQuestion`'s "Other") instead of queueing a turn, so clients without question cards (Android,
     /// the TUI, older apps) can answer too. Whether it did; a card it can't answer is skipped, and the
-    /// message queues as usual.
+    /// message queues as usual. The oldest waiting card is the one answered.
     pub(super) async fn answer_with_message(&mut self, entry_id: &str) -> bool {
-        let Some(card) = self.perms.iter().find_map(|(id, a)| matches!(a, Answer::Elicit(_)).then(|| id.clone()))
-        else {
+        let cards = self.perms.iter().filter(|(_, a)| matches!(a, Answer::Elicit(_)));
+        let Some(card) = cards.filter_map(|(id, _)| self.hub.store.entry(id)).min_by_key(|e| e.seq) else {
             return false;
         };
         let Some(mut message) = self.hub.store.entry(entry_id) else { return false };
+        // Only the user's new words answer. Host notes (`from: host`, as in `turn`) and messages typed before the
+        // question (held sign-in messages sent again) travel as `Cmd::Send` too, but weren't written for it.
+        if message.data["from"] == "host" || message.created_at < card.created_at {
+            return false;
+        }
         let text = message.data["text"].as_str().unwrap_or_default().trim().to_owned();
-        let key = self.hub.store.entry(&card).and_then(|e| {
-            e.data["fields"].as_array()?.iter().find(|f| f["kind"] == "text")?["key"].as_str().map(str::to_owned)
-        });
-        let Some(key) = key.filter(|_| !text.is_empty()) else {
-            self.answer_question(&card, None).await;
+        // Only the text would reach the agent: the files would be lost, so the message queues with them.
+        let has_files = message.data["attachments"].as_array().is_some_and(|a| !a.is_empty());
+        let key = card.data["fields"]
+            .as_array()
+            .and_then(|fields| fields.iter().find(|f| f["kind"] == "text")?["key"].as_str().map(str::to_owned));
+        let Some(key) = key.filter(|_| !text.is_empty() && !has_files) else {
+            self.answer_question(&card.id, None).await;
             return false;
         };
         let mut answers = serde_json::Map::new();
         answers.insert(key, json!([text]));
-        self.answer_question(&card, Some(&Value::Object(answers))).await;
+        self.answer_question(&card.id, Some(&Value::Object(answers))).await;
+        // The message was numbered after the last turn, but it speaks in the running one: clients take the
+        // highest sent turn as the one running, and a message past it would break its trace and order.
+        if let Some(turn) = self.turn {
+            self.hub.set_entry_turn(entry_id, turn);
+        }
         message.data["status"] = json!(crate::chat::team::RequestStatus::Sent);
         self.hub.set_entry(entry_id, &message.data);
         true
