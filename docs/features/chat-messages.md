@@ -40,7 +40,11 @@ it has no pointer tooltip or link-opening action.
   are normal bubbles. Consecutive exchanges with the same peer in the main chat (either
   direction, trace entries ignored) collapse into one "3 messages with Owen" row ([bot collaboration](bot-collaboration.md#notice-data)).
 - Clients never stream text into a bubble: the chat shows user messages, `final` agent entries,
-  permission cards and notices (`isChat`). Nothing pops in and out while a turn runs.
+  permission cards, question cards and notices (`isChat`). Nothing pops in and out while a turn runs.
+- An agent's question (Claude Code's AskUserQuestion, an ACP `elicitation/create` form) is a question card:
+  one tap answers a single one-choice question, Submit sends several questions, several picks or typed text,
+  Skip declines. A message typed while it waits answers its "Other" box. Desktop and iPhone only; Android and
+  the TUI answer by message ([question cards](../design/question-cards.md)).
 
 ## Bot reactions
 

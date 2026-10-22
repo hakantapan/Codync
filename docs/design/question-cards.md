@@ -1,6 +1,6 @@
 # Question cards: one-tap answers to agent questions
 
-Updated: 2026-10-22. Design, not built yet.
+Updated: 2026-10-23. Built for the host, desktop app and iPhone app.
 
 When an agent asks the user a multiple-choice question (Claude Code's `AskUserQuestion`), the chat shows the options as buttons, the way the Claude Code VS Code extension does. One tap answers a single question; multi-select and multi-question forms answer with **Submit**.
 
@@ -95,4 +95,4 @@ Clients that don't know `"question"` skip the entry (kinds are plain strings eve
 
 ## Release
 
-Additive protocol change: no `minApp` bump, minor version bump. Update [chat messages](../features/chat-messages.md) to describe question cards once built.
+Additive protocol change: no `minApp` bump, minor version bump (2.23.0). [Chat messages](../features/chat-messages.md) describes question cards.
