@@ -12,6 +12,14 @@ impl Actor {
     /// (before question cards Claude couldn't ask there at all). Group turns get cards: the user is in the room.
     /// So does a request that reports in the recipient's own chat (the user reads it there, as with approvals).
     pub(super) async fn on_elicit(&mut self, rpc_id: Value, params: Value) {
+        // Declaring forms also brings claude-agent-acp's "<model> declined this request. Retry with <fallback>?".
+        // Retrying would move the session off the bot's model, past Codync's own fallback chain: declined, the
+        // adapter keeps the refusal and the turn ends as it did before question cards.
+        if question_form::is_refusal_fallback(&params["requestedSchema"]) {
+            tracing::info!(bot = %self.cfg.id, "declined the agent's offer to retry a refusal on another model");
+            self.decline(rpc_id).await;
+            return;
+        }
         if self.active_routine.is_some()
             || self.active_request.as_ref().is_some_and(crate::chat::team::BotRequest::expects_reply)
         {

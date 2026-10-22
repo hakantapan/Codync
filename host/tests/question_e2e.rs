@@ -126,6 +126,19 @@ async fn a_form_the_card_cannot_show_is_declined() {
 }
 
 #[tokio::test]
+async fn the_offer_to_retry_a_refusal_on_another_model_is_declined() {
+    if python_missing() {
+        return;
+    }
+    let host = Host::start().await;
+    let bot = host.fixture_bot("Refuser", "question_agent.py", "refusal").await;
+    host.call("send", json!({"botId": bot, "text": "go", "clientNonce": "n1"})).await;
+    assert_eq!(outcome(&host, &bot).await["answer"], json!({"action": "decline"}));
+    let history = host.call("history", json!({"botId": bot})).await;
+    assert!(history["entries"].as_array().unwrap().iter().all(|e| e["kind"] != "question"));
+}
+
+#[tokio::test]
 async fn a_typed_message_answers_the_open_question() {
     if python_missing() {
         return;

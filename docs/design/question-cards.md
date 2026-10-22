@@ -29,6 +29,8 @@ Codync's `initialize` ([launch.rs](../../host/src/agent/bot/launch.rs)) declares
 
 Declaring the capability also forwards MCP servers' form elicitations through the same request; they get the same card when their fields fit the supported kinds.
 
+It also turns on the adapter's refusal-fallback dialog (dialog kind `refusal_fallback_prompt`): when the model refuses and Claude Code has a fallback model, the adapter asks `"<model> declined this request. Retry with <fallback>?"` as a form with one `choice` field (`retry_fallback` or `cancelled`) and no `toolCallId`. Retrying would move the session off the bot's configured model, outside Codync's own [fallback chain](../features/agent-fallback.md), so the host declines it at once and posts no card (`question_form::is_refusal_fallback` spots the `retry_fallback` option). The adapter then keeps the refusal, and the turn ends with "The agent declined to continue." as it did before question cards.
+
 ## Host
 
 1. **Capability.** `launch.rs` adds `"elicitation": {"form": {}}` to `clientCapabilities`.

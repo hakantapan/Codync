@@ -22,6 +22,12 @@ pub(super) fn fields(schema: &Value) -> Option<Vec<Value>> {
     schema["properties"].as_object()?.iter().map(|(key, p)| field(key, p)).collect()
 }
 
+/// claude-agent-acp's refusal-fallback dialog (`refusalFallbackToCreateRequest`, dialog kind
+/// `refusal_fallback_prompt`): its one `choice` field offers `retry_fallback`, the dialog's own result value.
+pub(super) fn is_refusal_fallback(schema: &Value) -> bool {
+    schema["properties"]["choice"]["oneOf"].as_array().is_some_and(|o| o.iter().any(|o| o["const"] == "retry_fallback"))
+}
+
 fn field(key: &str, p: &Value) -> Option<Value> {
     let (kind, options) = match p["type"].as_str()? {
         "string" => options(p).map_or((FieldKind::Text, Vec::new()), |o| (FieldKind::Single, o)),
