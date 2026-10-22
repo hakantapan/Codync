@@ -19,7 +19,7 @@ public struct EntryData: Codable, Hashable, Sendable {
     public var addFallback: Bool?
     public var text: String?
     public var final: Bool?
-    /// user: queued | sent | cancelled | failed · tool: pending | in_progress | completed | failed · permission: pending | answered | cancelled | expired
+    /// user: queued | sent | cancelled | failed · tool: pending | in_progress | completed | failed · permission: pending | answered | cancelled | expired · question: pending | answered | declined | cancelled | expired
     public var status: String?
     public var clientNonce: String?
     public var title: String?
@@ -29,6 +29,10 @@ public struct EntryData: Codable, Hashable, Sendable {
     public var locations: [Location]?
     public var options: [PermissionOption]?
     public var selected: String?
+    /// question: what it asks, in order.
+    public var fields: [QuestionField]?
+    /// question: once answered, one line per answered field.
+    public var answer: [String]?
     public var command: String?
     public var detail: String?
     public var cwd: String?
