@@ -251,13 +251,27 @@ export class BotStore extends BotSync {
 
   private patchBot(bot: Bot, change: Partial<BotDraft>) {
     const current = this.bots.get(bot.id)
-    if (current) this.bots.set(bot.id, { ...current, ...change } as Bot)
+    // Normalized, so a cleared section (null) reads as none.
+    if (current) this.bots.set(bot.id, normalizeBot({ ...current, ...change } as Bot))
     this.changed()
     this.perform((c) => c.call('updateBot', { ...updatePayload(bot), ...change }), true)
   }
 
   setPinned(bot: Bot, pinned: boolean) {
     this.patchBot(bot, { pinned })
+  }
+
+  /** Puts the bot in roster section `name`, or takes it out of its section (null); the host checks the name. */
+  setSection(bot: Bot, name: string | null) {
+    this.patchBot(bot, { section: name?.trim() || null })
+  }
+
+  /** Renames a section on this computer (onto another one's name merges them); null removes it, its bots stay. */
+  renameSection(from: string, to: string | null) {
+    const name = to?.trim() || undefined
+    for (const bot of this.bots.values()) if (bot.section === from) this.bots.set(bot.id, { ...bot, section: name })
+    this.changed()
+    this.perform((c) => c.call('renameSection', { from, to: name ?? null }), true)
   }
 
   /** Whether the bot may see and use the computer's screen. */
