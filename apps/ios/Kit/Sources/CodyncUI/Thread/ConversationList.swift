@@ -77,7 +77,7 @@ private struct ConversationCollection: UIViewRepresentable {
         context.coordinator.update(self, context: context)
     }
 
-    @MainActor final class Coordinator: NSObject, UICollectionViewDelegate {
+    @MainActor final class Coordinator: NSObject, UICollectionViewDelegate, UIGestureRecognizerDelegate {
         private var view: ConversationCollectionView!
         private var dataSource: UICollectionViewDiffableDataSource<Int, String>!
         private var contents: [String: AnyView] = [:]
@@ -107,6 +107,7 @@ private struct ConversationCollection: UIViewRepresentable {
             // Tapping the conversation puts the keyboard away; the rows still get the tap.
             let tap = UITapGestureRecognizer(target: view, action: #selector(UIView.endEditing(_:)))
             tap.cancelsTouchesInView = false
+            tap.delegate = self
             view.addGestureRecognizer(tap)
 
             let cell = UICollectionView.CellRegistration<UICollectionViewCell, String> { [weak self] cell, _, id in
@@ -211,6 +212,18 @@ private struct ConversationCollection: UIViewRepresentable {
             pending = follow
             // Not during SwiftUI's update of this view.
             DispatchQueue.main.async { [weak self] in self?.parent?.following = follow }
+        }
+
+        // MARK: keyboard
+
+        /// A tap into a text box in a row (the question card's) keeps the keyboard: the dismiss tap skips it.
+        func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+            var hit = touch.view
+            while let touched = hit {
+                if touched is UITextInput { return false }
+                hit = touched.superview
+            }
+            return true
         }
 
         // MARK: scrolling

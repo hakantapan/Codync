@@ -96,7 +96,7 @@ public struct Entry: Codable, Identifiable, Hashable, Sendable {
     /// The chat it's in: a bot's, or a group's.
     public var botId: String
     public var rev: Int64
-    /// user | agent | thought | tool | plan | permission | notice
+    /// user | agent | thought | tool | plan | permission | question | notice
     public var kind: String
     public var turn: Int64
     public var data: EntryData

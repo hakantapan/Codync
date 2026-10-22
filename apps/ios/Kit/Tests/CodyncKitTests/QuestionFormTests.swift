@@ -20,6 +20,15 @@ private let extras = QuestionField(key: "question_1", kind: "multi", title: "Ext
     #expect(entry.data.answer == ["PostgreSQL"])
 }
 
+@Test func aPendingQuestionDecodesWithNoAnswerTitleOrOptions() throws {
+    let wire = #"{"id":"q","seq":1,"botId":"bot","rev":1,"kind":"question","turn":1,"createdAt":0,"updatedAt":0,"data":{"title":"Which database?","status":"pending","answer":null,"fields":[{"key":"question_0_custom","kind":"text","title":null,"description":null,"options":[]}]}}"#
+    let entry = try JSONDecoder().decode(Entry.self, from: Data(wire.utf8))
+    #expect(entry.isChat)
+    #expect(entry.data.answer == nil)
+    #expect(entry.data.fields?.first?.options?.isEmpty == true)
+    #expect(QuestionForm.outcome(status: "answered", answer: []) == "Answered")
+}
+
 @Test func oneSingleChoiceQuestionSendsOnTapUntilSomethingIsTyped() {
     #expect(QuestionForm.sendsOnTap([db, other], [:]))
     #expect(QuestionForm.sendsOnTap([db, other], ["question_0_custom": ["  "]]))

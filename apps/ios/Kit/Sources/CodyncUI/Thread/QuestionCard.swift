@@ -68,6 +68,7 @@ struct QuestionCard: View {
                             Spacer(minLength: 0)
                             if isChosen {
                                 Image(systemName: "checkmark").font(.footnote.weight(.semibold)).foregroundStyle(Palette.accent)
+                                    .accessibilityHidden(true)
                             }
                         }
                         .frame(maxWidth: .infinity, minHeight: 46, alignment: .leading)
@@ -82,10 +83,12 @@ struct QuestionCard: View {
                 }
             }
             .background(Palette.background, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(field.title ?? "")
         }
     }
 
-    /// A typed answer: a "<title>…" row beside choices (focus moves into the box once it opens), the open box alone.
+    /// A typed answer: a "<title>…" row beside choices (focus moves into the box once the user opens it), the open box alone.
     @ViewBuilder private func textAnswer(_ field: QuestionField) -> some View {
         let title = field.title ?? "Answer"
         if QuestionForm.startsOpen(fields) || opened.contains(field.key) {
@@ -93,6 +96,8 @@ struct QuestionCard: View {
                 .lineLimit(2...6)
                 .textFieldStyle(.plain)
                 .focused($focused, equals: field.key)
+                // Only a box the user opened takes focus; a form that starts open doesn't pull up the keyboard.
+                .onAppear { if opened.contains(field.key) { focused = field.key } }
                 .disabled(answering)
                 .accessibilityLabel(title)
                 .padding(10)
@@ -101,12 +106,14 @@ struct QuestionCard: View {
         } else {
             Button {
                 Motion.animate { _ = opened.insert(field.key) }
-                focused = field.key
             } label: {
                 Text("\(title)…").font(.body).foregroundStyle(Palette.secondary)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(answering)
+            .opacity(answering ? 0.4 : 1)
         }
     }
 
