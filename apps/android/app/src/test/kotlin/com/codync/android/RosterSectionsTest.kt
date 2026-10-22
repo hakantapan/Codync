@@ -1,6 +1,9 @@
 package com.codync.android
 
 import com.codync.android.core.Bot
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -40,5 +43,20 @@ class RosterSectionsTest {
     @Test fun withoutSectionsTheRosterShowsAsItIs() {
         val plain = listOf(Bot("pin", pinned = true), Bot("a"), Bot("b"))
         assertEquals(plain.map { RosterLine.Row(it) }, rosterLines(plain, emptySet()))
+    }
+
+    @Test fun clearingASectionSendsNullRatherThanLeavingTheKeyOut() {
+        assertEquals(buildJsonObject { put("id", "b"); put("section", "Work") }, sectionUpdate("b", "Work"))
+        assertEquals(JsonNull, sectionUpdate("b", null)["section"])
+        assertEquals(buildJsonObject { put("from", "Work"); put("to", "Jobs") }, sectionRename("Work", "Jobs"))
+        assertEquals(JsonNull, sectionRename("Work", null)["to"])
+    }
+
+    @Test fun sectionControlsWaitForAHostThatKeepsSections() {
+        fun host(version: String?) = AppState(hello = version?.let { buildJsonObject { put("version", it) } })
+        assertFalse(host("2.22.2").supportsSections)
+        assertTrue(host("2.23.0").supportsSections)
+        assertTrue(host("2.24.1-dev").supportsSections)
+        assertFalse(host(null).supportsSections)
     }
 }

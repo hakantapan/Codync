@@ -1,7 +1,11 @@
 package com.codync.android
 
+import com.codync.android.core.AppVersion
 import com.codync.android.core.Bot
 import java.text.Collator
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 /** One line of the roster as it shows: a bot, or a section's header (docs/plans/roster-sections.md). */
 internal sealed interface RosterLine {
@@ -36,3 +40,16 @@ internal fun rosterLines(roster: List<Bot>, folded: Set<String>): List<RosterLin
 
 /** The sections [bots] are in, sorted the way the phone's language sorts ("İş" where Turkish puts it). */
 internal fun sectionNames(bots: List<Bot>): List<String> = bots.mapNotNull(Bot::section).distinct().sortedWith(Collator.getInstance())
+
+/** The first host version that keeps sections (`section` on bots, `renameSection`). */
+private const val SECTIONS_HOST = "2.23.0"
+
+/** Section controls show only for a host that keeps sections; before its `hello` (offline) they stay hidden. */
+internal val AppState.supportsSections: Boolean
+    get() = hello?.text("version")?.let { !AppVersion.isBelow(it, SECTIONS_HOST) } == true
+
+/** `updateBot`'s section patch: null goes as JSON null, which clears it (a missing key keeps it). */
+internal fun sectionUpdate(id: String, section: String?): JsonObject = buildJsonObject { put("id", id); put("section", section) }
+
+/** `renameSection`: every bot in [from] moves to [to], merging into a section of that name; null removes the section. */
+internal fun sectionRename(from: String, to: String?): JsonObject = buildJsonObject { put("from", from); put("to", to) }
