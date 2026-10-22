@@ -8,14 +8,26 @@
   padding: 4px 2px;
   text-align: left;
 }
+.question-text-row:disabled {
+  opacity: 0.4;
+}
 .question-text-field {
-  animation: question-open 160ms ease-out;
+  animation: question-open var(--morph);
 }
 @keyframes question-open {
   from { opacity: 0; transform: translateY(-4px); }
 }
-@media (prefers-reduced-motion: reduce) {
-  .question-text-field { animation: none; }
+/* The opened box: the option group's fill, a stable card width while it grows. */
+.question-text-field .market-field {
+  padding: 8px 12px;
+  background: var(--background);
+  border-radius: var(--radius-m);
+}
+.question-text-field .market-field:focus {
+  outline: 2px solid var(--secondary);
+}
+.permission-card:has(.question-text-field) {
+  width: min(100%, 420px);
 }
 .question-card-actions {
   justify-content: flex-end;

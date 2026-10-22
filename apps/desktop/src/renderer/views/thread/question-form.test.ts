@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { QuestionField } from '../../../shared/models.ts'
-import { hasAnswer, pick, questionOutcome, sendsOnTap } from './question-form.ts'
+import { hasAnswer, pick, questionOutcome, sendsOnTap, startsOpen } from './question-form.ts'
 
 const db: QuestionField = { key: 'question_0', kind: 'single', title: 'Database', options: [{ value: 'PostgreSQL', label: 'PostgreSQL' }, { value: 'SQLite', label: 'SQLite' }] }
 const other: QuestionField = { key: 'question_0_custom', kind: 'text', title: 'Other', options: [] }
@@ -16,6 +16,12 @@ test('one single-choice question sends on tap until something is typed', () => {
 test('several questions or several picks wait for Submit', () => {
   assert.equal(sendsOnTap([db, other, extras], {}), false)
   assert.equal(sendsOnTap([extras], {}), false)
+})
+
+test('a text field starts collapsed only beside choices', () => {
+  assert.equal(startsOpen([db, other]), false)
+  assert.equal(startsOpen([other]), true)
+  assert.equal(startsOpen([other, { ...other, key: 'question_1_custom' }]), true)
 })
 
 test('a single choice replaces, a multi choice toggles', () => {

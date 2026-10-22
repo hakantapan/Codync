@@ -9,6 +9,9 @@ export function sendsOnTap(fields: QuestionField[], answers: QuestionAnswers): b
   return choices.length === 1 && choices[0]!.kind === 'single' && !typed(fields, answers)
 }
 
+/** Whether the text boxes start open: a text field collapses to an "Other…" row only beside choices; alone it is the question. */
+export const startsOpen = (fields: QuestionField[]) => fields.every((f) => f.kind === 'text')
+
 /** `answers` after tapping `value` on `field`: a single choice replaces, a multi choice toggles. */
 export function pick(answers: QuestionAnswers, field: QuestionField, value: string): QuestionAnswers {
   const current = answers[field.key] ?? []

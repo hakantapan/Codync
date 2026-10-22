@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon'
 import { HStack, VStack } from '../../components/Stack'
 import { Text } from '../../components/Text'
 import { Field } from '../marketplace/pieces'
-import { hasAnswer, pick, questionOutcome, sendsOnTap } from './question-form'
+import { hasAnswer, pick, questionOutcome, sendsOnTap, startsOpen } from './question-form'
 import './permission-card.css'
 import './question-card.css'
 
@@ -17,8 +17,9 @@ export function QuestionCard({ entry, answering, respond }: { entry: Entry; answ
   const d = entry.data
   const fields = d.fields ?? []
   const pending = d.status === 'pending'
+  const textOpen = startsOpen(fields)
   const tap = (field: QuestionField, value: string) =>
-    sendsOnTap(fields, answers) ? respond({ ...answers, [field.key]: [value] }) : setAnswers(pick(answers, field, value))
+    sendsOnTap(fields, answers) ? respond({ ...answers, [field.key]: [value] }) : setAnswers((a) => pick(a, field, value))
   return (
     <div className="agent-inset">
       <VStack gap={10} className="permission-card">
@@ -33,10 +34,12 @@ export function QuestionCard({ entry, answering, respond }: { entry: Entry; answ
                 <TextAnswer
                   key={f.key}
                   field={f}
-                  open={opened.has(f.key)}
+                  open={textOpen || opened.has(f.key)}
+                  autoFocus={opened.has(f.key)}
+                  disabled={answering}
                   value={answers[f.key]?.[0] ?? ''}
-                  onOpen={() => setOpened(new Set(opened).add(f.key))}
-                  onChange={(v) => setAnswers({ ...answers, [f.key]: [v] })}
+                  onOpen={() => setOpened((s) => new Set(s).add(f.key))}
+                  onChange={(v) => setAnswers((a) => ({ ...a, [f.key]: [v] }))}
                 />
               ) : (
                 <Choices key={f.key} field={f} chosen={answers[f.key] ?? []} disabled={answering} onTap={(v) => tap(f, v)} />
@@ -45,7 +48,7 @@ export function QuestionCard({ entry, answering, respond }: { entry: Entry; answ
             <HStack gap={8} className="question-card-actions">
               {answering ? <Spinner size={14} /> : <>
                 <Button kind="secondary" onClick={() => respond(null)}>Skip</Button>
-                {sendsOnTap(fields, answers) ? null : <Button disabled={!hasAnswer(answers)} onClick={() => respond(answers)}>Submit</Button>}
+                {sendsOnTap(fields, answers) && !hasAnswer(answers) ? null : <Button disabled={!hasAnswer(answers)} onClick={() => respond(answers)}>Submit</Button>}
               </>}
             </HStack>
           </>
@@ -62,11 +65,16 @@ function Choices({ field, chosen, disabled, onTap }: { field: QuestionField; cho
     <VStack gap={6}>
       {field.title ? <Text size="caption" weight="semibold" tone="secondary">{field.title}</Text> : null}
       {field.description ? <Text as="div" size="subheadline" tone="text">{field.description}</Text> : null}
-      <div className="permission-card-options">
+      <div className="permission-card-options" role="group" aria-label={field.title ?? undefined}>
         {field.options.map((o, i) => (
           <div key={o.value}>
             {i > 0 ? <div className="thread-hairline" /> : null}
-            <button className="permission-option question-option" disabled={disabled} onClick={() => onTap(o.value)}>
+            <button
+              className={disabled ? 'permission-option question-option dimmed' : 'permission-option question-option'}
+              disabled={disabled}
+              aria-pressed={chosen.includes(o.value)}
+              onClick={() => onTap(o.value)}
+            >
               <VStack gap={2} className="permission-option-label">
                 <Text size="body" tone="text">{o.label}</Text>
                 {o.description ? <Text size="caption" tone="secondary">{o.description}</Text> : null}
@@ -80,18 +88,21 @@ function Choices({ field, chosen, disabled, onTap }: { field: QuestionField; cho
   )
 }
 
-function TextAnswer({ field, open, value, onOpen, onChange }: { field: QuestionField; open: boolean; value: string; onOpen: () => void; onChange: (v: string) => void }) {
+type TextAnswerProps = { field: QuestionField; open: boolean; autoFocus: boolean; disabled: boolean; value: string; onOpen: () => void; onChange: (v: string) => void }
+
+/** A typed answer: a collapsed "<title>…" row beside choices (focus moves into the box once it opens), the open box alone. */
+function TextAnswer({ field, open, autoFocus, disabled, value, onOpen, onChange }: TextAnswerProps) {
   const title = field.title ?? 'Answer'
   if (!open) {
     return (
-      <button className="question-text-row" onClick={onOpen}>
+      <button className="question-text-row" disabled={disabled} onClick={onOpen}>
         <Text size="body" tone="secondary">{`${title}…`}</Text>
       </button>
     )
   }
   return (
     <div className="question-text-field">
-      <Field value={value} onChange={onChange} label={title} placeholder={field.description ?? title} lines={[2, 6]} />
+      <Field value={value} onChange={onChange} label={title} placeholder={field.description ?? title} lines={[2, 6]} autoFocus={autoFocus} disabled={disabled} />
     </div>
   )
 }

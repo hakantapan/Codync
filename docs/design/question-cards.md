@@ -65,7 +65,7 @@ New `QuestionCard` on each, beside `PermissionCard`, using the same layout, `ans
 
 - The title, then for each field: its `title` as a small header, its `description` as the question text, and the options as full-width rows (label, description underneath).
 - **One tap sends** when the form has exactly one `single` field and every other field is `text` and empty. Otherwise a tap toggles the choice (radio for `single`, checkbox for `multi`) and **Submit** sends all fields at once; it is enabled once any field has a value.
-- `text` fields titled **Other** start collapsed as an `Other…` row that opens a text box. Typing in one makes **Submit** appear even on a one-tap form.
+- `text` fields start collapsed as an `<title>…` row (`Other…`) that opens a text box, and focus moves into the box when a tap opens it, but only when the form also has choice fields. A form with no choice fields shows its text boxes open, unfocused. Typing in one makes **Submit** appear even on a one-tap form.
 - **Skip** sends `decline`.
 - After the answer, the card collapses to the title and the chosen values (`✓ PostgreSQL`), or `Skipped` / `Cancelled`. Every device follows the entry's `status`, so a card answered on one closes on the others.
 - Strings are English like the rest of the apps.
@@ -82,6 +82,8 @@ Clients that don't know `"question"` skip the entry (kinds are plain strings eve
 - Android and TUI cards.
 - Option `preview` (`_meta` on an enum option).
 - Answering from the push notification.
+- Answering on the desktop notch island, which shows "Needs you" from the bot status and opens the chat.
+- Voice calls naming question cards: they announce "needs your approval" today. A follow-up for both apps.
 - Showing `ExitPlanMode`'s descriptive option names on permission cards (they arrive as normal `session/request_permission` and the cards replace names by `kind`); a separate fix.
 
 ## Tests
