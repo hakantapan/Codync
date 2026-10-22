@@ -5,7 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Span;
 
-use super::super::app::{App, Bot, Click, Focus, Mark, RosterLine, Status, cursor_line, roster_lines};
+use super::super::app::{App, Bot, Click, Focus, Mark, RosterLine, Status, cursor_line, roster_lines, stops};
 use super::super::md::{self, truncate, width as w};
 use super::buffer::{fill, hline, put, put_line, restyle, rput, u};
 use super::style::{avatar, glyph, theme};
@@ -56,14 +56,15 @@ pub(super) fn roster(buf: &mut Buffer, r: Rect, app: &mut App, narrow: bool) {
     let mut y = 0u16;
     for line in &lines {
         rows.push(y);
-        y += if matches!(line, RosterLine::Bot(_)) { 3 } else { 1 };
+        y += extent(line).0;
     }
     let cursor = cursor_line(&lines, app.selected.as_ref().and_then(|s| bots.iter().find(|b| &b.id == s)));
     let view_h = bottom.saturating_sub(top);
-    let offset = (cursor.map_or(0, |i| rows[i]) + 3).saturating_sub(view_h);
+    let offset = cursor.map_or(0, |i| rows[i] + extent(&lines[i]).0).saturating_sub(view_h);
+    let bar = if focused { t.bold } else { t.secondary };
     for (i, (line, &ry)) in lines.iter().zip(&rows).enumerate() {
         let Some(yy) = (top + ry).checked_sub(offset) else { continue };
-        if ry < offset || yy + 1 >= bottom {
+        if ry < offset || yy + extent(line).1 > bottom {
             continue;
         }
         let selected = cursor == Some(i);
@@ -72,18 +73,8 @@ pub(super) fn roster(buf: &mut Buffer, r: Rect, app: &mut App, narrow: bool) {
                 put(buf, x0 + 1, yy, wd, l, t.dim.add_modifier(Modifier::BOLD));
                 continue;
             }
-            RosterLine::Section { name, bots: count, unread, folded } => {
-                if selected {
-                    restyle(buf, Rect::new(x0, yy, wd, 1), t.sel);
-                    put(buf, x0, yy, 1, "▌", if focused { t.bold } else { t.secondary });
-                }
-                let arrow = if *folded { "▸" } else { "▾" };
-                let badge = if *folded && *unread > 0 { format!(" {unread} ") } else { String::new() };
-                let label = format!("{arrow} {name} ({count})");
-                put(buf, x0 + 1, yy, wd.saturating_sub(2 + u(w(&badge))), &label, t.dim.add_modifier(Modifier::BOLD));
-                if !badge.is_empty() {
-                    rput(buf, r.right() - 1, yy, &badge, t.btn_primary);
-                }
+            RosterLine::Section { name, bots: count, unread, folded, .. } => {
+                section_row(buf, Rect::new(x0, yy, wd, 1), selected.then_some(bar), name, *count, *unread, *folded);
                 continue;
             }
             RosterLine::Bot(b) => *b,
@@ -92,7 +83,6 @@ pub(super) fn roster(buf: &mut Buffer, r: Rect, app: &mut App, narrow: bool) {
         app.hits.clicks.push((row, Click::Bot(b.id.clone())));
         if selected {
             restyle(buf, row, t.sel);
-            let bar = if focused { t.bold } else { t.secondary };
             put(buf, x0, yy, 1, "▌", bar);
             put(buf, x0, yy + 1, 1, "▌", bar);
         }
@@ -119,6 +109,29 @@ pub(super) fn roster(buf: &mut Buffer, r: Rect, app: &mut App, narrow: bool) {
         x = put(buf, x, hy, 10, "group", t.dim) + 2;
         x = put(buf, x, hy, 3, "^k", t.secondary.add_modifier(Modifier::BOLD)) + 1;
         put(buf, x, hy, 8, "go to", t.dim);
+    }
+}
+
+/// (rows a line takes in the list, rows it draws): a bot has a gap row below it.
+fn extent(line: &RosterLine<'_>) -> (u16, u16) {
+    if matches!(line, RosterLine::Bot(_)) { (3, 2) } else { (1, 1) }
+}
+
+/// A section's label row, `▾ name (bots)`: the name is cut so `(bots)` and a gap before the unread
+/// badge (shown while folded) always fit.
+fn section_row(buf: &mut Buffer, row: Rect, bar: Option<Style>, name: &str, bots: usize, unread: i64, folded: bool) {
+    let t = theme();
+    if let Some(bar) = bar {
+        mark_cursor(buf, row, bar);
+    }
+    let badge = if folded && unread > 0 { format!(" {unread} ") } else { String::new() };
+    let room = usize::from(row.width.saturating_sub(2)).saturating_sub(w(&badge) + usize::from(!badge.is_empty()));
+    let tail = format!(" ({bots})");
+    let name = truncate(name, room.saturating_sub(2 + w(&tail)));
+    let label = format!("{} {name}{tail}", if folded { "▸" } else { "▾" });
+    put(buf, row.x + 1, row.y, u(room), &label, t.dim.add_modifier(Modifier::BOLD));
+    if !badge.is_empty() {
+        rput(buf, row.right() - 1, row.y, &badge, t.btn_primary);
     }
 }
 
@@ -151,24 +164,75 @@ pub(super) fn compact_roster(buf: &mut Buffer, r: Rect, app: &mut App) {
     let t = theme();
     app.hits.roster = r;
     let bots: Vec<Bot> = app.roster().into_iter().cloned().collect();
-    let sel = app.selected.clone();
-    let sel_idx = sel.as_ref().and_then(|s| bots.iter().position(|b| &b.id == s)).unwrap_or(0);
+    let shown: Vec<&Bot> = bots.iter().collect();
+    let lines = roster_lines(&shown, &app.folded);
+    let cursor = cursor_line(&lines, app.bot());
+    let cells = stops(&lines);
+    let at = cells.iter().position(|&(i, _)| Some(i) == cursor).unwrap_or(0);
     let per = 2u16;
     let view = r.height.saturating_sub(1) / per;
-    let offset = (u(sel_idx) + 1).saturating_sub(view);
-    for (i, b) in bots.iter().enumerate().skip(usize::from(offset)) {
-        let y = r.y + 1 + (u(i) - offset) * per;
+    let offset = (u(at) + 1).saturating_sub(view);
+    for (n, &(i, id)) in cells.iter().enumerate().skip(usize::from(offset)) {
+        let y = r.y + 1 + (u(n) - offset) * per;
         if y >= r.bottom() {
             break;
         }
         let row = Rect::new(r.x, y, r.width, 1);
-        app.hits.clicks.push((row, Click::Bot(b.id.clone())));
-        if sel.as_deref() == Some(b.id.as_str()) {
-            restyle(buf, row, t.sel);
-            put(buf, r.x, y, 1, "▌", if app.focus == Focus::Roster { t.bold } else { t.secondary });
+        app.hits.clicks.push((row, Click::Bot(id.to_owned())));
+        if cursor == Some(i) {
+            mark_cursor(buf, row, if app.focus == Focus::Roster { t.bold } else { t.secondary });
         }
-        put_line(buf, r.x + 1, y, 2, &avatar(app, b));
-        let (g, gs) = glyph(app, b.mark());
-        put(buf, r.x + 3, y, 1, g, gs);
+        match &lines[i] {
+            RosterLine::Section { bots: count, unread, .. } => {
+                compact_section(buf, row, *count, (*unread > 0).then(|| glyph(app, Mark::Unread)));
+            }
+            RosterLine::Bot(b) => {
+                put_line(buf, r.x + 1, y, 2, &avatar(app, b));
+                let (g, gs) = glyph(app, b.mark());
+                put(buf, r.x + 3, y, 1, g, gs);
+            }
+            RosterLine::Label(_) => {}
+        }
+    }
+}
+
+/// A folded section in the compact strip: `▸`, its bot count and the unread glyph if it has unread.
+fn compact_section(buf: &mut Buffer, row: Rect, bots: usize, unread: Option<(&str, Style)>) {
+    let t = theme();
+    let x = put(buf, row.x + 1, row.y, 1, "▸", t.dim);
+    let x = put(buf, x, row.y, 2, &bots.to_string(), t.dim.add_modifier(Modifier::BOLD));
+    if let Some((g, style)) = unread {
+        put(buf, x, row.y, 1, g, style);
+    }
+}
+
+/// The cursor's row: a selection tint and a bar in its first cell.
+fn mark_cursor(buf: &mut Buffer, row: Rect, bar: Style) {
+    restyle(buf, row, theme().sel);
+    put(buf, row.x, row.y, 1, "▌", bar);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_long_section_name_gives_way_to_the_count_and_leaves_a_gap_before_the_badge() {
+        let row = Rect::new(0, 0, 24, 1);
+        let mut buf = Buffer::empty(row);
+        section_row(&mut buf, row, None, &"n".repeat(40), 12, 7, true);
+        let text = (0..row.width).map(|x| buf[(x, 0)].symbol()).collect::<String>();
+        assert_eq!(text, " ▸ nnnnnnnnnn… (12)  7  ");
+    }
+
+    #[test]
+    fn a_folded_section_is_one_cell_row_in_the_compact_strip() {
+        let row = Rect::new(0, 0, 5, 1);
+        for (bots, unread, text) in [(3, None, " ▸3  "), (12, Some(("●", Style::new())), " ▸12●")] {
+            let mut buf = Buffer::empty(row);
+            compact_section(&mut buf, row, bots, unread);
+            let cells = (0..row.width).map(|x| buf[(x, 0)].symbol()).collect::<String>();
+            assert_eq!(cells, text);
+        }
     }
 }

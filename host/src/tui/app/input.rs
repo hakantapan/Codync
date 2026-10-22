@@ -211,7 +211,7 @@ impl App {
                         }
                     }
                     _ => {
-                        if let Some(id) = self.roster().get(i).map(|b| b.id.clone()) {
+                        if let Some(id) = self.stop_at(i) {
                             self.select(&id);
                         }
                     }
@@ -365,6 +365,7 @@ impl App {
                     self.call("updateBot", json!({"id": id, "pinned": pinned}), After::Nothing);
                 }
             }
+            KeyCode::Char('z') => self.toggle_section(),
             KeyCode::Char('c') => self.copy_last(),
             _ => {}
         }
