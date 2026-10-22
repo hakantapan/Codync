@@ -51,6 +51,11 @@ test('the user and final bot replies can be quoted, once the computer has them',
   assert.equal(isReplyable(message('user', { text: 'sending' }, 'local-n')), false)
 })
 
+test('question cards show in the chat and take no replies', () => {
+  assert.equal(isChat(message('question', { title: 'Which database?' })), true)
+  assert.equal(isReplyable(message('question', { title: 'Which database?' })), false)
+})
+
 test('a quote names who wrote it and falls back to file names', () => {
   assert.deepEqual(quoteOf(message('user', { text: 'hi' })), { id: 'e1', author: 'user', text: 'hi' })
   assert.equal(quoteOf(message('agent', { text: 'yo', final: true, author: 'ann' })).author, 'ann')

@@ -169,6 +169,26 @@ export interface PermissionOption {
   kind: string
 }
 
+/** One choice of a question card's field. */
+export interface QuestionOption {
+  value: string
+  label: string
+  description?: string | null
+}
+
+/** One field of an agent's question form (`question` entries). */
+export interface QuestionField {
+  key: string
+  /** single | multi | text */
+  kind: string
+  title?: string | null
+  description?: string | null
+  options: QuestionOption[]
+}
+
+/** What the user picked on a question card, by field key: chosen option values, or the typed text. */
+export type QuestionAnswers = Record<string, string[]>
+
 export interface PlanItem {
   content: string
   status: string
@@ -275,7 +295,7 @@ export interface EntryData {
   retry?: boolean
   text?: string
   final?: boolean
-  /** user: queued | sent | cancelled | failed · tool: pending | in_progress | completed | failed · permission: pending | answered | cancelled | expired */
+  /** user: queued | sent | cancelled | failed · tool: pending | in_progress | completed | failed · permission: pending | answered | cancelled | expired · question: pending | answered | declined | cancelled | expired */
   status?: string
   clientNonce?: string
   title?: string
@@ -285,6 +305,10 @@ export interface EntryData {
   locations?: { path: string; line?: number }[]
   options?: PermissionOption[]
   selected?: string
+  /** question: what it asks, in order. */
+  fields?: QuestionField[]
+  /** question: once answered, one line per answered field. */
+  answer?: string[] | null
   command?: string
   detail?: string
   cwd?: string
@@ -307,7 +331,7 @@ export interface Entry {
   seq: number
   botId: string
   rev: number
-  /** user | agent | thought | tool | plan | permission | notice */
+  /** user | agent | thought | tool | plan | permission | question | notice */
   kind: string
   turn: number
   data: EntryData
@@ -320,6 +344,7 @@ export function isChat(e: Entry): boolean {
   switch (e.kind) {
     case 'user':
     case 'permission':
+    case 'question':
       return true
     case 'notice':
       // Only a fresh conversation gets a line: memory lives in the bot's memory settings, a summary keeps the same
