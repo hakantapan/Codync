@@ -15,6 +15,7 @@
 //! written to the group's transcript; see `group`). A routine run talks in its chat
 //! from a session of its own (see `session`).
 
+mod cards;
 mod compaction;
 mod fallback;
 mod fast_mode;
@@ -346,7 +347,7 @@ struct Actor {
     reacted: Reacted,
     files: files::FileShares,
     /// permission entry id -> who waits for the answer
-    perms: HashMap<String, updates::Answer>,
+    perms: HashMap<String, cards::Answer>,
     stop_requested: bool,
     /// A cancelled turn still running past this stops its agent process.
     cancel_deadline: Option<Instant>,

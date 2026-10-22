@@ -2,8 +2,8 @@
 //! answered on the card or cancelled with its turn (`cancel_turn`).
 
 use super::Actor;
+use super::cards::Answer;
 use super::question_form;
-use super::updates::Answer;
 use serde_json::{Value, json};
 
 impl Actor {
