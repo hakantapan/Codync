@@ -254,7 +254,7 @@ export class BotStore extends BotSync {
     // Normalized, so a cleared section (null) reads as none.
     if (current) this.bots.set(bot.id, normalizeBot({ ...current, ...change } as Bot))
     this.changed()
-    this.perform((c) => c.call('updateBot', { ...updatePayload(bot), ...change }), true)
+    this.perform((c) => c.call('updateBot', { ...updatePayload(current ?? bot), ...change }), true)
   }
 
   setPinned(bot: Bot, pinned: boolean) {
