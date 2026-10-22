@@ -28,7 +28,10 @@ fn field(key: &str, p: &Value) -> Option<Value> {
         "array" => (FieldKind::Multi, options(&p["items"])?),
         _ => return None,
     };
-    Some(json!({"key": key, "kind": kind, "title": p["title"], "description": p["description"], "options": options}))
+    // Only strings go on: the phone's decode of the whole entry fails on any other type.
+    Some(json!({
+        "key": key, "kind": kind, "title": p["title"].as_str(), "description": p["description"].as_str(), "options": options
+    }))
 }
 
 /// A choice field's options: titled `oneOf` / `anyOf` entries, or a bare `enum`. A list with no string options
@@ -40,7 +43,7 @@ fn options(p: &Value) -> Option<Vec<Value>> {
             .filter_map(|o| {
                 let value = o["const"].as_str()?;
                 let label = o["title"].as_str().unwrap_or(value);
-                Some(json!({"value": value, "label": label, "description": o["description"]}))
+                Some(json!({"value": value, "label": label, "description": o["description"].as_str()}))
             })
             .collect()
     } else {
@@ -121,6 +124,15 @@ mod tests {
         assert!(fields(&json!({"properties": {"n": {"type": "integer"}}})).is_none());
         assert!(fields(&json!({"properties": {"ok": {"type": "boolean"}}})).is_none());
         assert!(fields(&json!({})).is_none());
+    }
+
+    #[test]
+    fn only_string_titles_and_descriptions_go_to_the_card() {
+        let schema = json!({"properties": {"q": {"type": "string", "title": 5, "description": ["x"],
+            "oneOf": [{"const": "a", "description": {"x": 1}}]}}});
+        let f = fields(&schema).unwrap();
+        assert_eq!((&f[0]["title"], &f[0]["description"]), (&Value::Null, &Value::Null));
+        assert_eq!(f[0]["options"][0]["description"], Value::Null);
     }
 
     #[test]
