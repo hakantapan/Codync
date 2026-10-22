@@ -60,7 +60,7 @@ import kotlinx.serialization.json.putJsonArray
     var confirmDelete by remember { mutableStateOf<Bot?>(null) }
     val roster = roster(state.bots)
     val reorder = remember { RosterReorder() }
-    reorder.roster = roster.map(Bot::id)
+    reorder.roster = roster
     val online = state.actualConnection is LinkState.Ready
     // A computer that turned this phone away, or this computer's older identity, counts as none (iOS `availableStores`).
     val usable = state.computers.isNotEmpty() && !state.isStale
@@ -107,37 +107,38 @@ import kotlinx.serialization.json.putJsonArray
  * shown follows the finger until the host's synced order catches up.
  */
 private class RosterReorder {
-    var roster: List<String> = emptyList()
+    var roster: List<Bot> = emptyList()
     var order by mutableStateOf<List<String>?>(null)
     var dragged by mutableStateOf<String?>(null)
     var offset by mutableFloatStateOf(0f)
     val heights = mutableMapOf<String, Int>()
     private val handles = mutableMapOf<String, ContextDrag>()
+    private val synced: List<String> get() = roster.map(Bot::id)
 
     fun shown(bots: List<Bot>): List<Bot> {
         val ids = order ?: return bots
         // Dropped and synced: the host's order is the one to show again.
-        if (dragged == null && ids == roster) { order = null; return bots }
+        if (dragged == null && ids == synced) { order = null; return bots }
         return ids.mapNotNull { id -> bots.firstOrNull { it.id == id } } + bots.filter { it.id !in ids }
     }
 
     fun handle(id: String, save: (List<String>) -> Unit): ContextDrag = handles.getOrPut(id) {
-        ContextDrag(start = { order = order ?: roster; dragged = id; offset = 0f }, move = { step -> offset += step; swap(id) }, end = {
+        ContextDrag(start = { order = order ?: synced; dragged = id; offset = 0f }, move = { step -> offset += step; swap(id) }, end = {
             val dropped = order
             dragged = null; offset = 0f
-            if (dropped != null && dropped != roster) save(dropped) else order = null
+            if (dropped != null && dropped != synced) save(dropped) else order = null
         })
     }
 
-    /** Past half the neighbor's height, the row takes the neighbor's place. */
+    /** Past half its height, the row takes the place of the next bot it may pass ([moved]): headers and other sections stay put. */
     private fun swap(id: String) {
-        val list = order ?: return
-        val at = list.indexOf(id)
-        val next = if (offset > 0) at + 1 else at - 1
-        val height = list.getOrNull(next)?.let(heights::get) ?: return
+        val bots = shown(roster)
+        val direction = if (offset > 0) 1 else -1
+        val swapped = moved(bots, id, direction) ?: return
+        val height = heights[swapped[bots.indexOfFirst { it.id == id }]] ?: return
         if (kotlin.math.abs(offset) < height / 2f) return
-        order = list.toMutableList().apply { add(next, removeAt(at)) }
-        offset -= if (offset > 0) height else -height
+        order = swapped
+        offset -= direction * height
     }
 }
 
@@ -145,13 +146,19 @@ private class RosterReorder {
 internal fun roster(bots: List<Bot>): List<Bot> = bots.filter { !it.deleted && !it.hidden }
     .sortedWith(compareByDescending<Bot> { it.pinned }.thenBy { it.position }.thenByDescending { it.lastAt })
 
-/** The roster order with a bot one place up (-1) or down (+1) among bots with its pin state, or null when it can't move. */
+/**
+ * The roster order with a bot swapped with the next bot up (-1) or down (+1) that shows beside it, or null when there's none:
+ * pinned bots move among all the pinned, the others among bots of their section (or of none), skipping the bots between.
+ */
 internal fun moved(roster: List<Bot>, id: String, offset: Int): List<String>? {
     val at = roster.indexOfFirst { it.id == id }
-    val neighbor = roster.getOrNull(at + offset)
-    if (at < 0 || neighbor == null || neighbor.pinned != roster[at].pinned) return null
-    return roster.map(Bot::id).toMutableList().apply { this[at] = neighbor.id; this[at + offset] = id }
+    if (at < 0) return null
+    val next = generateSequence(at + offset) { it + offset }.takeWhile { it in roster.indices }
+        .firstOrNull { roster[it].movesWith(roster[at]) } ?: return null
+    return roster.map(Bot::id).toMutableList().apply { this[at] = roster[next].id; this[next] = id }
 }
+
+private fun Bot.movesWith(other: Bot) = pinned == other.pinned && (pinned || section == other.section)
 
 @Composable private fun BotRowItem(bot: Bot, state: AppState, store: AppStore, drag: ContextDrag, edit: () -> Unit, delete: () -> Unit) {
     Box(Modifier.fillMaxWidth().contextActions(onClick = { store.openBot(bot.id) }, reorder = drag, preview = {
