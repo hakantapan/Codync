@@ -207,12 +207,17 @@ private fun Bot.movesWith(other: Bot) = pinned == other.pinned && (pinned || sec
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.weight(1f)) { Preview(bot, state) }
-                if (bot.unread > 0) Box(Modifier.height(18.dp).widthIn(min = 18.dp).clip(Capsule()).background(Palette.accentFill)
-                    .padding(horizontal = 6.dp).semantics { contentDescription = "${bot.unread} unread" }, contentAlignment = Alignment.Center) {
-                    Text("${bot.unread}", style = Type.caption2.bold, color = Palette.onAccent)
-                }
+                if (bot.unread > 0) UnreadBadge(bot.unread)
             }
         }
+    }
+}
+
+/** A count of unread messages in the accent capsule (a row, a folded section). */
+@Composable internal fun UnreadBadge(count: Int) {
+    Box(Modifier.height(18.dp).widthIn(min = 18.dp).clip(Capsule()).background(Palette.accentFill)
+        .padding(horizontal = 6.dp).semantics { contentDescription = "$count unread" }, contentAlignment = Alignment.Center) {
+        Text("$count", style = Type.caption2.bold, color = Palette.onAccent)
     }
 }
 
