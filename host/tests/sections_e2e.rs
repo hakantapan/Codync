@@ -53,3 +53,19 @@ async fn bots_and_groups_take_a_trimmed_checked_section() {
     let control = host.refused("updateBot", json!({"id": group, "section": "Wo\u{7}rk"})).await;
     assert_eq!(control, "A section name can't contain control characters.", "groups are checked too");
 }
+
+#[tokio::test]
+async fn rename_section_answers_like_reorder_bots() {
+    let host = Host::start().await;
+    let a = host.bot("A", "auto").await;
+    host.call("updateBot", json!({"id": a, "section": "Work"})).await;
+    assert_eq!(host.call("renameSection", json!({"from": "Work", "to": "Play"})).await, json!({}));
+    assert_eq!(sections(&host, &[a.as_str()]).await, [json!("Play")]);
+    let typo = host.refused("renameSection", json!({"from": "Play", "to": 5})).await;
+    assert!(typo.starts_with("`to` must be a section name or null"), "{typo}");
+    let missing = host.refused("renameSection", json!({"from": "Play"})).await;
+    assert!(missing.starts_with("`to` must be a section name or null"), "{missing}");
+    assert_eq!(sections(&host, &[a.as_str()]).await, [json!("Play")], "a missing `to` moves nothing");
+    host.call("renameSection", json!({"from": "Play", "to": null})).await;
+    assert_eq!(sections(&host, &[a.as_str()]).await, [Value::Null]);
+}
