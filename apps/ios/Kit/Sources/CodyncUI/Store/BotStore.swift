@@ -197,6 +197,9 @@ public final class BotStore {
         }
     }
 
+    /// Every section on this computer by name, hidden and pinned bots' too (a row's "Move to section").
+    public var sections: [String] { RosterSection.sorted(Set(bots.values.compactMap(\.section))) }
+
     /// Display name for a harness id, as the host reports it (falls back to the built-in list).
     public func backendName(_ id: String) -> String {
         hello?.backends.first { $0.id == id }?.name ?? BackendInfo.name(id)
