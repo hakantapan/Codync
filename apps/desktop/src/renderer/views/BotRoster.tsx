@@ -12,7 +12,7 @@ import type { useComputerRoster } from '../store/computer-roster'
 import { StoreContext, useApp } from '../store/context'
 import { BotRow } from './BotRow'
 import { ComputerRosterSection } from './ComputerRosterSection'
-import { RosterSection } from './RosterSection'
+import { RosterLabel, RosterSection } from './RosterSection'
 import { UpdateNeededCard } from './UpdateNeededCard'
 
 /** A bot being dragged among its computer's bots, and the order it has made so far. */
@@ -161,7 +161,7 @@ export function BotRoster({ roster, compact, onContext, onSectionContext }: {
 
   const sections = roster.sections.map(({ computer, store, items }, index) => {
     const notice = store.mismatch && !compact ? <StoreContext.Provider value={store}><UpdateNeededCard /></StoreContext.Provider> : null
-    const rows = rosterLines(ordered(computer.id, items), roster.folded).map((line) => line.kind === 'row' ? row(line.item, items) : (
+    const rows = rosterLines(ordered(computer.id, items), roster.folded).map((line) => line.kind === 'row' ? row(line.item, items) : line.kind === 'label' ? <RosterLabel key="label" compact={compact} /> : (
       <RosterSection key={`section/${line.name}`} name={line.name} count={line.count} unread={line.unread} folded={line.folded} compact={compact}
         toggle={() => roster.toggleSection(line.name)} onContext={(x, y) => onSectionContext(line.name, store, x, y)}>
         {line.items.map((item) => row(item, items))}

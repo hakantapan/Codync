@@ -5,11 +5,12 @@ import { limitSectionName, rosterLines, sameRosterGroup, sectionNames, sectionRe
 const item = (id: string, section?: string, { pinned = false, unread = 0 } = {}) => ({ id, bot: { pinned, section, unread } })
 type Item = ReturnType<typeof item>
 
-/** Each line as text: a row's id, or a header's name, count, unread and fold. */
+/** Each line as text: a row's id, the "Bots" label, or a header's name, count, unread and fold. */
 const outline = (lines: RosterLine<Item>[]) =>
-  lines.map((line) => (line.kind === 'row' ? line.item.id : `${line.name} ${line.count} ${line.unread}${line.folded ? ' folded' : ''}: ${line.items.map((i) => i.id).join(' ')}`))
+  lines.map((line) => (line.kind === 'row' ? line.item.id : line.kind === 'label' ? 'BOTS'
+    : `${line.name} ${line.count} ${line.unread}${line.folded ? ' folded' : ''}: ${line.items.map((i) => i.id).join(' ')}`))
 
-test('pinned rows first, then sections by name, then rows without a section', () => {
+test('pinned rows first, then sections by name, then rows without a section under the label', () => {
   const roster = [
     item('pinned-work', 'Work', { pinned: true }),
     item('loose'),
@@ -23,6 +24,7 @@ test('pinned rows first, then sections by name, then rows without a section', ()
     'apps 1 0: apps',
     'personal 1 0: home',
     'Work 2 5: work-1 work-2',
+    'BOTS',
     'loose',
   ])
 })
@@ -30,13 +32,18 @@ test('pinned rows first, then sections by name, then rows without a section', ()
 test('a folded section keeps its rows for the fold, but only its header is on screen', () => {
   const roster = [item('a', 'Work'), item('b', 'Work'), item('c')]
   const lines = rosterLines(roster, ['Work'])
-  assert.deepEqual(outline(lines), ['Work 2 0 folded: a b', 'c'])
+  assert.deepEqual(outline(lines), ['Work 2 0 folded: a b', 'BOTS', 'c'])
   assert.deepEqual(shownRows(lines).map((i) => i.id), ['c'])
   assert.deepEqual(shownRows(rosterLines(roster, [])).map((i) => i.id), ['a', 'b', 'c'])
 })
 
-test('a section only its pinned bots are in has no header', () => {
+test('a section only its pinned bots are in has no header, and no header means no label', () => {
   assert.deepEqual(outline(rosterLines([item('p', 'Work', { pinned: true }), item('c')], [])), ['p', 'c'])
+})
+
+test('the label shows only with a section header and a bot in none', () => {
+  assert.deepEqual(outline(rosterLines([item('a'), item('b')], [])), ['a', 'b'])
+  assert.deepEqual(outline(rosterLines([item('p', undefined, { pinned: true }), item('a', 'Work')], [])), ['p', 'Work 1 0: a'])
 })
 
 test('a bot moves past bots with the same pin state and section; pinned bots ignore sections', () => {

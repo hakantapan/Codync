@@ -95,6 +95,7 @@ import kotlinx.serialization.json.putJsonArray
                         FoldedSections.save(context, folded)
                     }, actions = if (state.supportsSections) sectionActions(line.name, store) { naming = SectionNaming.Rename(line.name) } else emptyList(),
                         modifier = Modifier.animateItem())
+                    RosterLine.Label -> SectionLabel(Modifier.animateItem())
                     is RosterLine.Row -> {
                         val bot = line.bot
                         val lifted = reorder.dragged == bot.id

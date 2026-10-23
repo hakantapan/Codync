@@ -70,7 +70,7 @@ support is tracked in the checklist. Accounts have separate device keys, mirrors
 files, image caches and composer drafts.
 
 The roster shows activity, previews, unread counts, groups, pin/hide actions and sections
-(Move to section in a bot's menu; tap a section's header to fold it on this phone, touch and hold it to rename or remove it);
+(Move to section in a bot's menu; tap a section's header to fold it on this phone, touch and hold it to rename or remove it; bots in none sit under a "Bots" label);
 touch and hold a bot, then move it, to reorder within its section (the order syncs through the host). Cached bots remain readable offline and are labeled as saved. An
 unreachable computer is distinguished from an empty online roster. Chat supports
 final replies, Markdown/code, permissions, reactions, quote replies (touch and hold a

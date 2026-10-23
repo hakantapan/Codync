@@ -15,12 +15,12 @@ class RosterSectionsTest {
     private val work2 = Bot("w2", section = "Work", unread = 3)
     private val roster = listOf(pinned, work1, loose, personal, work2)
 
-    @Test fun pinnedBotsComeFirstThenEachSectionByNameThenBotsWithoutOne() {
+    @Test fun pinnedBotsComeFirstThenEachSectionByNameThenBotsWithoutOneUnderTheLabel() {
         assertEquals(listOf(
             RosterLine.Row(pinned),
             RosterLine.Header("Personal", count = 1, unread = 0, folded = false), RosterLine.Row(personal),
             RosterLine.Header("Work", count = 2, unread = 5, folded = false), RosterLine.Row(work1), RosterLine.Row(work2),
-            RosterLine.Row(loose),
+            RosterLine.Label, RosterLine.Row(loose),
         ), rosterLines(roster, folded = emptySet()))
     }
 
@@ -29,7 +29,7 @@ class RosterSectionsTest {
             RosterLine.Row(pinned),
             RosterLine.Header("Personal", count = 1, unread = 0, folded = false), RosterLine.Row(personal),
             RosterLine.Header("Work", count = 2, unread = 5, folded = true),
-            RosterLine.Row(loose),
+            RosterLine.Label, RosterLine.Row(loose),
         ), rosterLines(roster, folded = setOf("Work")))
     }
 
@@ -48,6 +48,13 @@ class RosterSectionsTest {
     @Test fun withoutSectionsTheRosterShowsAsItIs() {
         val plain = listOf(Bot("pin", pinned = true), Bot("a"), Bot("b"))
         assertEquals(plain.map { RosterLine.Row(it) }, rosterLines(plain, emptySet()))
+        // Only a pinned bot is in a section: no header, so no label.
+        assertEquals(listOf(RosterLine.Row(pinned), RosterLine.Row(loose)), rosterLines(listOf(pinned, loose), emptySet()))
+    }
+
+    @Test fun theLabelNeedsABotInNoSection() {
+        assertEquals(listOf(RosterLine.Header("Work", count = 1, unread = 2, folded = false), RosterLine.Row(work1)),
+            rosterLines(listOf(work1), emptySet()))
     }
 
     @Test fun clearingASectionSendsNullRatherThanLeavingTheKeyOut() {

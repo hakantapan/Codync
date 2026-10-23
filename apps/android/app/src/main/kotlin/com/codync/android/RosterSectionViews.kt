@@ -73,6 +73,12 @@ import com.codync.android.design.*
     }
 }
 
+/** The plain "Bots" label over the bots in no section: a header's name, where its row starts; it folds nothing. */
+@Composable internal fun SectionLabel(modifier: Modifier = Modifier) {
+    Text("Bots", modifier.fillMaxWidth().padding(top = 14.dp, bottom = 2.dp).semantics { heading() }.padding(vertical = 6.dp),
+        style = Type.footnote.semibold, color = Palette.secondary)
+}
+
 /** The row's "Move to section" submenu: each other section there is, a new one, and none when the bot is in one. */
 internal fun sectionMenu(bot: Bot, sections: List<String>, store: AppStore, newSection: () -> Unit): MenuItem {
     val others = sections.filter { it != bot.section }.map { name -> MenuItem(name) { store.setSection(bot.id, name) } }

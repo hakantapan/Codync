@@ -14,12 +14,13 @@ BOTS
     🤖 Notes Bot
     🤖 Mail Bot
 ▸ Work (3)  ●4              folded: the unread count of everything inside
-  🤖 Scratch Bot            rows without a section, no header
+Bots                        a plain label (no fold, count or menu), only when there are sections
+  🤖 Scratch Bot            rows without a section
 ```
 
 - A bot or group chat is in at most one section, or none.
 - **Order:** pinned rows, then sections sorted by name (locale-aware, so "İş" sorts as Turkish
-  expects), then rows without a section. Inside a section rows keep the roster order (position,
+  expects), then rows without a section, under a "Bots" label when there are sections. Inside a section rows keep the roster order (position,
   then recent activity).
 - **Row menu:** "Move to section ▸" lists the existing sections, "New section…" and "Remove from
   section". **Header menu:** "Rename section…" and "Remove section" (its bots stay, without a
@@ -58,7 +59,7 @@ sections.
 ## Clients
 
 Each client gets one pure function that turns the sorted roster into lines (pinned rows, section
-headers with their rows, rows without a section) and is unit-tested. The drag guards compare pin
+headers with their rows, the "Bots" label, rows without a section) and is unit-tested. The drag guards compare pin
 state, and for unpinned bots the section too.
 
 | Client | Model | Header | Menus | Name entry | Folded state |

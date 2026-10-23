@@ -51,7 +51,7 @@ A bot or group chat can be in one section, a name the user picks (`section`, set
 The host trims the name, treats an empty one as none, and refuses one over 40 characters or with a
 control character. The roster shows pinned rows first, then each section under its header sorted by
 name (the way the device's language sorts; the terminal UI sets case and accents aside but has no
-per-language rules, so Swedish "å" sorts as "a" there), then rows in no section; inside a section
+per-language rules, so Swedish "å" sorts as "a" there), then rows in no section (under a "Bots" label when there are sections); inside a section
 rows keep the order above. A section exists while a bot is in it. A pinned bot keeps its section and shows in it again once unpinned; hidden bots keep
 theirs. Each device folds sections for itself.
 

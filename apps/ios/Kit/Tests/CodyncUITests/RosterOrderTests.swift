@@ -64,15 +64,18 @@ private func rosterBot(_ id: String, pinned: Bool = false, hidden: Bool = false,
         RosterSection.lines(roster, folded: folded) { $0 }.map { line in
             switch line {
             case let .header(section): "\(section.folded ? "▸" : "▾") \(section.name) \(section.count) \(section.unread)"
+            case .label: "BOTS"
             case let .bot(item): item.id
             }
         }
     }
     // A pinned bot shows only on top; its section counts the rest.
-    #expect(shown([]) == ["p", "▾ home 1 0", "h", "▾ İş 1 0", "i", "▾ Work 2 5", "w1", "w2", "loose"])
-    #expect(shown(["Work"]) == ["p", "▾ home 1 0", "h", "▾ İş 1 0", "i", "▸ Work 2 5", "loose"])
-    // A section only pinned bots are in has no heading.
-    #expect(RosterSection.lines([roster[0]], folded: []) { $0 }.count == 1)
+    #expect(shown([]) == ["p", "▾ home 1 0", "h", "▾ İş 1 0", "i", "▾ Work 2 5", "w1", "w2", "BOTS", "loose"])
+    #expect(shown(["Work"]) == ["p", "▾ home 1 0", "h", "▾ İş 1 0", "i", "▸ Work 2 5", "BOTS", "loose"])
+    // A section only pinned bots are in has no heading, and with no heading no label.
+    #expect(RosterSection.lines([roster[0], roster[2]], folded: []) { $0 }.count == 2)
+    // The label needs a bot in no section too.
+    #expect(RosterSection.lines([roster[1]], folded: []) { $0 }.count == 2)
 }
 
 @Test func typedSectionNamesAreTrimmedAndCappedLikeTheHost() {

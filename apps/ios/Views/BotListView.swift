@@ -83,13 +83,14 @@ struct BotListView: View {
     }
 
     /// A computer's bots: pinned ones, then each section's heading with its bots (none while
-    /// folded), then the bots in no section.
+    /// folded), then the bots in no section (under the "Bots" label when there are sections).
     private func sectionLines(_ store: BotStore) -> [RosterLine] {
         let id = store.computer.id
         let items = accounts.roster.filter { $0.ref.computerId == id }
         return RosterSection.lines(items, folded: foldedSections) { $0.bot }.map { line -> RosterLine in
             switch line {
             case let .header(section): .section(section, id, store)
+            case .label: .label(id)
             case let .bot(item): .bot(item, store)
             }
         }
@@ -119,6 +120,8 @@ struct BotListView: View {
                     case let .computer(_, store): computerHeading(store, roster: roster, folded: movingComputer)
                     case let .section(section, _, store):
                         if movingComputer { Color.clear.frame(height: 0) } else { sectionHeading(section, store: store) }
+                    case .label:
+                        if movingComputer { Color.clear.frame(height: 0) } else { RosterBotsLabel().moveDisabled(true) }
                     case let .bot(item, store):
                         // A dragged heading folds every computer's bots into their headings. Each
                         // row stays, empty: taking it out would move the lifted heading's place in
@@ -227,7 +230,7 @@ struct BotListView: View {
             withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { accounts.move(id, to: old[to]) }
         case let .bot(item, store):
             store.drop(item.bot.id, in: after.compactMap { $0.botId(on: item.ref.computerId) })
-        case .section:
+        case .section, .label:
             break
         }
     }
@@ -361,16 +364,18 @@ private final class LiftItem: NSItemProvider {
 }
 
 /// One row in the roster: a computer's heading or a bot, which the user can drag, or a section's
-/// heading on a computer (its id carried along: `id` can't read the main-actor store).
+/// heading or the "Bots" label on a computer (its id carried along: `id` can't read the main-actor store).
 private enum RosterLine: Identifiable {
     case computer(ComputerID, BotStore)
     case section(RosterSection, ComputerID, BotStore)
+    case label(ComputerID)
     case bot(RosterItem, BotStore)
 
     var id: String {
         switch self {
         case let .computer(id, _): "computer:\(id)"
         case let .section(section, computerId, _): "section:\(computerId):\(section.name)"
+        case let .label(computerId): "label:\(computerId)"
         case let .bot(item, _): "bot:\(item.ref.computerId):\(item.bot.id)"
         }
     }

@@ -84,8 +84,10 @@
   overflow: hidden;
 }
 
-/* A section the user made: a quieter header than a computer's, its rows folding the same way. */
-.roster-section-toggle {
+/* A section the user made: a quieter header than a computer's, its rows folding the same way. The
+   "Bots" label over the rows in no section sits where a header's chevron starts. */
+.roster-section-toggle,
+.roster-label {
   width: 100%;
   margin-top: 8px;
   padding: 5px 8px;

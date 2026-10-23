@@ -5,15 +5,17 @@ interface Placed {
   unread: number
 }
 
-/** One line of a computer's roster: a bot's row, or a section header holding its rows. */
+/** One line of a computer's roster: a bot's row, a section header holding its rows, or the "Bots" label. */
 export type RosterLine<T> =
   | { kind: 'row'; item: T }
   | { kind: 'section'; name: string; count: number; unread: number; folded: boolean; items: T[] }
+  | { kind: 'label' }
 
 /**
  * A computer's roster (already in roster order, hidden bots left out) as lines: pinned rows, then
- * each section by name with its rows, then rows without a section. A pinned bot shows only among
- * the pinned rows. A folded section still holds its rows, so its fold can animate.
+ * each section by name with its rows, then rows without a section, under a "Bots" label when there
+ * are sections. A pinned bot shows only among the pinned rows. A folded section still holds its
+ * rows, so its fold can animate.
  */
 export function rosterLines<T extends { bot: Placed }>(items: T[], folded: readonly string[]): RosterLine<T>[] {
   const row = (item: T): RosterLine<T> => ({ kind: 'row', item })
@@ -23,12 +25,14 @@ export function rosterLines<T extends { bot: Placed }>(items: T[], folded: reado
     const unread = rows.reduce((sum, item) => sum + item.bot.unread, 0)
     return { kind: 'section', name, count: rows.length, unread, folded: folded.includes(name), items: rows }
   })
-  return [...items.filter((item) => item.bot.pinned).map(row), ...sections, ...unpinned.filter((item) => !item.bot.section).map(row)]
+  const loose = unpinned.filter((item) => !item.bot.section).map(row)
+  const label: RosterLine<T>[] = sections.length && loose.length ? [{ kind: 'label' }] : []
+  return [...items.filter((item) => item.bot.pinned).map(row), ...sections, ...label, ...loose]
 }
 
 /** The rows on screen, top to bottom: a folded section's rows are left out. */
 export function shownRows<T>(lines: RosterLine<T>[]): T[] {
-  return lines.flatMap((line) => (line.kind === 'row' ? [line.item] : line.folded ? [] : line.items))
+  return lines.flatMap((line) => (line.kind === 'row' ? [line.item] : line.kind === 'label' || line.folded ? [] : line.items))
 }
 
 /** Whether a drag (or Alt+↑/↓) may move one bot past another: same pin state and, unpinned, the same section. */

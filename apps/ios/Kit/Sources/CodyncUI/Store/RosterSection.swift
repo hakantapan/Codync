@@ -36,8 +36,9 @@ public struct RosterSection: Sendable {
     }
 
     /// A computer's roster (in `BotStore.roster` order) as the rows on screen: pinned bots, then
-    /// each section by name with its bots (none while folded), then the bots in no section. A
-    /// pinned bot shows only on top, whatever its section; every part keeps the roster's order.
+    /// each section by name with its bots (none while folded), then the bots in no section, under
+    /// the "Bots" label when there are sections. A pinned bot shows only on top, whatever its
+    /// section; every part keeps the roster's order.
     public static func lines<Item>(_ roster: [Item], folded: Set<String>, bot: (Item) -> Bot) -> [RosterSectionLine<Item>] {
         var pinned: [Item] = [], loose: [Item] = [], bySection: [String: [Item]] = [:]
         for item in roster {
@@ -58,13 +59,15 @@ public struct RosterSection: Sendable {
             lines.append(.header(RosterSection(name: name, count: items.count, unread: unread, folded: isFolded)))
             if !isFolded { lines += items.map { RosterSectionLine.bot($0) } }
         }
+        if !bySection.isEmpty && !loose.isEmpty { lines.append(.label) }
         return lines + loose.map { RosterSectionLine.bot($0) }
     }
 }
 
-/// One row of a computer's roster split into sections.
+/// One row of a computer's roster split into sections; `label` is the "Bots" label over the bots in none.
 public enum RosterSectionLine<Item> {
     case header(RosterSection)
+    case label
     case bot(Item)
 }
 

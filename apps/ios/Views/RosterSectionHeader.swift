@@ -59,3 +59,17 @@ struct RosterSectionHeader: View {
         return "\(section.name), \(bots)\(unread)"
     }
 }
+
+/// The plain "Bots" label over the bots in no section, set like a section heading's name so the
+/// rows line up; it folds nothing and has no menu.
+struct RosterBotsLabel: View {
+    var body: some View {
+        Text("Bots")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Palette.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 20)
+            .padding(.bottom, 8)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
