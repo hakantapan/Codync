@@ -47,6 +47,10 @@ was walked through on an emulator against a real host.
 
 ### Not ported yet
 
+- **Question cards (2.23.0).** Android skips the `question` entry an agent's multiple-choice question
+  posts ([question cards](../design/question-cards.md)): the user sees the question and its choices in
+  the bot's activity line and push, and answers with a message (the host's text fallback). Port the card
+  from the iPhone (`QuestionCard.swift`, `QuestionForm` in `Question.swift`, `respondQuestion`).
 - **Bot memory (2.18.0).** The host's memory moved out of Engram ([bot memory](../design/bot-memory.md)). The
   memory screen still calls the removed `memoryDetail`, `reviewMemory`, `exportMemory` and `importMemory`
   (`MemoryModel.kt`, `MemoryCard.kt`, `LiveMemoryTest.kt`), so it shows an error. Missing too: the two layers

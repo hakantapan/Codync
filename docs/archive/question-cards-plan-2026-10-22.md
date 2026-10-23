@@ -10,7 +10,7 @@
 
 **Spec:** [docs/design/question-cards.md](../design/question-cards.md)
 
-**Work in:** the worktree `/Users/hakantapan/Projects/Codync/.claude/worktrees/question-cards` (branch `feat/question-cards`). Every path below is relative to it. Never `cd` to the main checkout.
+**Work in:** the worktree `.claude/worktrees/question-cards` (branch `feat/question-cards`). Every path below is relative to it. Never `cd` to the main checkout.
 
 ---
 

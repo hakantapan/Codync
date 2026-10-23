@@ -376,8 +376,8 @@ impl Actor {
 }
 
 impl Actor {
-    /// Ends what an attempt left open: file shares, the last text, unanswered permission cards (they can't be
-    /// answered after the turn) and tool calls the agent never closed out (they'd spin forever in the trace).
+    /// Ends what an attempt left open: file shares, the last text, unanswered permission and question cards (they
+    /// can't be answered after the turn) and tool calls the agent never closed out (they'd spin forever in the trace).
     pub(super) fn close_attempt(&mut self, failed: bool) {
         self.files.cancel();
         self.flush(true);

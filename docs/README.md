@@ -28,6 +28,7 @@ Source review, a passing build, local integration tests and production acceptanc
 ## Features
 
 - [Chat messages](features/chat-messages.md)
+- [Question cards](design/question-cards.md) (one-tap answers to an agent's multiple-choice questions)
 - [Group chats and replies](features/groups-and-replies.md)
 - [Bot-to-bot collaboration](features/bot-collaboration.md)
 - [Context and memory](features/context-and-memory.md)

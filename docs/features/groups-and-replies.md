@@ -66,9 +66,9 @@ quotes itself.
   the group's Stop or removing the member from the group does, and a newer room turn that asks
   the member again replaces it.
 - A new message in the group, or Stop, ends a running room turn before its next speaker.
-- Tool calls, thoughts and permission cards of a member's group turn are written to the
-  group (with `author`), not to the member's own chat. One "done" push per room turn, plus
-  one per late answer from a busy member.
+- Tool calls, thoughts, permission cards and [question cards](../design/question-cards.md)
+  of a member's group turn are written to the group (with `author`), not to the member's own
+  chat. One "done" push per room turn, plus one per late answer from a busy member.
 - Files sent to a group are kept in the group's data folder (`~/.codync/bots/<group>/uploads`);
   each member's prompt lists their paths under the user's line.
 - Voice calls work in a group: each final reply is read with its speaker's name, a member's

@@ -143,7 +143,8 @@ impl Actor {
                 }
             }
             Answer::Elicit(rpc_id) => {
-                // No option reaches here (returned above): the card is cancelled, as when its turn ends (`cancel_turn`).
+                // No option reaches here (returned above): stopping the turn (`cancel_turn`) cancels the card. A turn
+                // that ends with the card still open expires it instead (`close_attempt`).
                 if let Some(conn) = &self.conn {
                     // A failed write means the agent exited; `Incoming::Closed` ends the turn.
                     let _ = conn.acp.respond(rpc_id, json!({"action": "cancel"})).await;

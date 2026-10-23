@@ -9,7 +9,7 @@ a version without one gets a generic "Bug fixes and improvements" line. Delete o
 ## 2.23.0
 
 ### zh-Hant
-- Agent 提問時，直接點選選項即可回答。
+- Agent 提問時，直接點選選項即可回答
 
 ### en-US
-- When an agent asks you something, answer with one tap on a choice.
+- When an agent asks you something, answer with one tap on a choice
