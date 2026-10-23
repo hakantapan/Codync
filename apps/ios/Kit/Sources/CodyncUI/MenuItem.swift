@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// One row in a Codync menu: an action, or a choice when `selected` is set.
+/// One row in a Codync menu: an action, a choice when `selected` is set, or a submenu.
 public struct MenuItem: Identifiable {
     public let id = UUID()
     public var title: String
@@ -10,6 +10,9 @@ public struct MenuItem: Identifiable {
     public var selected: Bool?
     public var destructive: Bool
     public var divider: Bool
+    /// The rows of the submenu this row opens ("Move to section ▸") instead of running `action`;
+    /// one level deep: a row inside it can't open another.
+    public var submenu: [MenuItem] = []
     public var action: () -> Void
 
     public init(_ title: String, icon: String? = nil, image: Image? = nil, selected: Bool? = nil, destructive: Bool = false,
@@ -21,6 +24,12 @@ public struct MenuItem: Identifiable {
         self.destructive = destructive
         self.divider = divider
         self.action = action
+    }
+
+    /// A row that opens a submenu of `rows`.
+    public init(_ title: String, icon: String? = nil, divider: Bool = false, submenu rows: [MenuItem]) {
+        self.init(title, icon: icon, divider: divider) {}
+        submenu = rows
     }
 }
 
@@ -67,8 +76,24 @@ private struct ContextActions: ViewModifier {
     }
 }
 
-/// A `MenuItem` inside a system `Menu` or `contextMenu`: choices as checkmarked toggles.
-@ViewBuilder private func systemMenuRow(_ item: MenuItem) -> some View {
+/// A `MenuItem` inside a system `Menu` or `contextMenu`; a submenu opens its rows in a system
+/// `Menu`, one level deep (an opaque row type can't contain itself).
+@ViewBuilder func systemMenuRow(_ item: MenuItem) -> some View {
+    if item.submenu.isEmpty {
+        systemMenuAction(item)
+    } else {
+        Menu {
+            ForEach(item.submenu) { row in
+                let _ = assert(row.submenu.isEmpty, "A submenu is one level deep: this row would be a dead button")
+                if row.divider { Divider() }
+                systemMenuAction(row)
+            }
+        } label: { menuLabel(item) }
+    }
+}
+
+/// A `MenuItem` that runs its action: choices as checkmarked toggles.
+@ViewBuilder private func systemMenuAction(_ item: MenuItem) -> some View {
     let role: ButtonRole? = item.destructive ? .destructive : nil
     if let selected = item.selected {
         // The binding's setter must be Sendable, but SwiftUI only calls it from the menu, on the
