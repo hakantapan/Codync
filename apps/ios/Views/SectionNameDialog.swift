@@ -2,10 +2,10 @@ import CodyncKit
 import CodyncUI
 import SwiftUI
 
-/// What the section name dialog names: a bot's new section, or a computer's section to rename.
+/// What the section name dialog names: a bot's new section, or a section to rename with `save`.
 enum SectionNaming {
     case new(Bot, BotStore)
-    case rename(String, BotStore)
+    case rename(String, save: @MainActor (String) -> Void)
 
     var title: String {
         switch self {
@@ -22,7 +22,7 @@ enum SectionNaming {
     @MainActor func save(_ name: String) {
         switch self {
         case let .new(bot, store): store.setSection(bot, to: name)
-        case let .rename(old, store): store.renameSection(from: old, to: name)
+        case let .rename(_, save): save(name)
         }
     }
 }

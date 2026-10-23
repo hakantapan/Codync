@@ -363,7 +363,7 @@ function ChatSplitView() {
           <BotRoster roster={roster} compact={compact}
             onContext={(bot, store, x, y) => setContext({ items: botActions(bot, store), x, y })}
             onSectionContext={(section, store, x, y) => {
-              const items = sectionHeaderItems(section, store, setNaming)
+              const items = sectionHeaderItems(section, store, setNaming, (to) => roster.renameSection(store, section, to))
               if (items.length) setContext({ items, x, y })
             }} />
           {visibleRoster.length === 0 && !roster.grouped && !compact && mismatchStores.length === 0 ? (

@@ -90,6 +90,15 @@ private func rosterBot(_ id: String, pinned: Bool = false, hidden: Bool = false,
     #expect(RosterSection.limited("Work") == "Work")
 }
 
+@Test func aFoldedSectionRenamedOrRemovedHereTakesItsFoldAlong() {
+    #expect(RosterSection.folds(["Home", "Work"], renaming: "Work", to: "Jobs") == ["Home", "Jobs"])
+    #expect(RosterSection.folds(["Home"], renaming: "Work", to: "Jobs") == ["Home"]) // Unfolded: nothing changes.
+    #expect(RosterSection.folds(["Home"], renaming: "Work", to: "Home") == ["Home"]) // Never unfolds the target.
+    #expect(RosterSection.folds(["Home", "Work"], renaming: "Work", to: nil) == ["Home"]) // Removed: its name goes.
+    #expect(RosterSection.folds(["Work"], renaming: "Work", to: "Home") == ["Home"]) // A merge folds the section it joins.
+    #expect(RosterSection.folds(["Home", "Work"], renaming: "Work", to: "Home") == ["Home"])
+}
+
 @MainActor @Test func sectionMenuListsEverySectionOnTheComputer() throws {
     let (store, done) = try rosterStore([
         rosterBot("a", section: "Work"), rosterBot("p", pinned: true, section: "Pinned"),

@@ -13,7 +13,7 @@ import {
   type Usage,
 } from '@shared/models'
 import type { HostClient } from '../client/host-client'
-import { sectionRename } from '../lib/roster-sections'
+import { placedBots, sectionMembers, sectionRename } from '../lib/roster-sections'
 import { FileDownloads } from './file-downloads'
 import { BotSync, sleep } from './bot-sync'
 
@@ -271,17 +271,14 @@ export class BotStore extends BotSync {
   /** Renames a section on this computer (onto another one's name merges them); null removes it, its bots stay. */
   renameSection(from: string, to: string | null) {
     const rename = sectionRename(from, to)
-    const moved = [...this.bots.values()].filter((bot) => bot.section === from).map((bot) => bot.id)
+    const moved = sectionMembers(this.bots.values(), from)
     this.place(moved, rename.to ?? undefined)
     this.perform((c) => c.call('renameSection', rename), true, () => this.place(moved, from))
   }
 
   /** Shows the bots in roster section `section` (none: undefined) before the host's bot events confirm it. */
   private place(ids: string[], section: string | undefined) {
-    for (const id of ids) {
-      const bot = this.bots.get(id)
-      if (bot) this.bots.set(id, { ...bot, section })
-    }
+    for (const [id, bot] of placedBots(this.bots, ids, section)) this.bots.set(id, bot)
     this.changed()
   }
 

@@ -13,7 +13,6 @@ function computer(hasRosterSections = true) {
     hasRosterSections,
     bots: new Map(bots.map((bot) => [bot.id, bot])),
     setSection: (bot: Bot, name: string | null) => calls.push(['setSection', bot.id, name]),
-    renameSection: (from: string, to: string | null) => calls.push(['renameSection', from, to]),
   } as unknown as BotStore
   const naming: SectionNaming[] = []
   return { store, calls, naming, bot: (id: string) => store.bots.get(id)! }
@@ -46,17 +45,17 @@ test('a bot in no section has nothing to be removed from', () => {
 
 test('a header renames its section from its name, or removes it', () => {
   const { store, calls, naming } = computer()
-  const items = sectionHeaderItems('Work', store, (n) => naming.push(n))
+  const items = sectionHeaderItems('Work', store, (n) => naming.push(n), (to) => calls.push(['rename', to]))
   assert.deepEqual(items.map((i) => i.title), ['Rename section…', 'Remove section'])
   items[0]!.action()
   assert.deepEqual(naming.map((n) => [n.title, n.name]), [['Rename section', 'Work']])
   naming[0]!.save('Jobs')
   items[1]!.action()
-  assert.deepEqual(calls, [['renameSection', 'Work', 'Jobs'], ['renameSection', 'Work', null]])
+  assert.deepEqual(calls, [['rename', 'Jobs'], ['rename', null]])
 })
 
 test('a host without sections gets no section menus', () => {
   const { store, bot } = computer(false)
   assert.deepEqual(moveToSectionItems(bot('work'), store, () => {}), [])
-  assert.deepEqual(sectionHeaderItems('Work', store, () => {}), [])
+  assert.deepEqual(sectionHeaderItems('Work', store, () => {}, () => {}), [])
 })

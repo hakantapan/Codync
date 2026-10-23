@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { limitSectionName, rosterLines, sameRosterGroup, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
+import { foldsAfterRename, limitSectionName, placedBots, rosterLines, sameRosterGroup, sectionMembers, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
 
 const item = (id: string, section?: string, { pinned = false, unread = 0 } = {}) => ({ id, bot: { pinned, section, unread } })
 type Item = ReturnType<typeof item>
@@ -71,4 +71,47 @@ test('a name field stops at 40 characters as the host counts them, never inside 
   assert.equal(limitSectionName(forty + 'b'), forty)
   assert.equal(limitSectionName('😀'.repeat(41)), '😀'.repeat(40))
   assert.equal(limitSectionName('a'.repeat(39) + '😀b'), 'a'.repeat(39) + '😀')
+})
+
+test('a folded section renamed or removed here takes its fold along; an unfolded one changes nothing', () => {
+  assert.deepEqual(foldsAfterRename(['Home', 'Work'], 'Work', 'Jobs'), ['Home', 'Jobs'])
+  assert.deepEqual(foldsAfterRename(['Home'], 'Work', 'Jobs'), ['Home'])
+  assert.deepEqual(foldsAfterRename(['Home'], 'Work', 'Home'), ['Home']) // Never unfolds the target.
+  assert.deepEqual(foldsAfterRename(['Home', 'Work'], 'Work', null), ['Home'])
+  assert.deepEqual(foldsAfterRename(['Work'], 'Work', 'Home'), ['Home']) // A merge folds the section it joins.
+  assert.deepEqual(foldsAfterRename(['Home', 'Work'], 'Work', 'Home'), ['Home'])
+})
+
+type Placeable = { id: string; section?: string; unread: number }
+/** A computer's bots by id. */
+const computerBots = (...bots: Placeable[]) => new Map(bots.map((bot) => [bot.id, bot]))
+/** Shows placed bots as `BotStore.place` does. */
+const apply = (bots: Map<string, Placeable>, placed: [string, Placeable][]) => {
+  for (const [id, bot] of placed) bots.set(id, bot)
+}
+
+test('a refused section change for one bot puts back only its section', () => {
+  const bots = computerBots({ id: 'a', section: 'Work', unread: 0 }, { id: 'b', section: 'Work', unread: 0 })
+  const before = bots.get('a')?.section // setSection remembers it…
+  bots.set('a', { id: 'a', section: 'Home', unread: 3 }) // …shows the move, and a message arrives meanwhile.
+  const undo = placedBots(bots, ['a'], before)
+  assert.deepEqual(undo, [['a', { id: 'a', section: 'Work', unread: 3 }]])
+  apply(bots, undo)
+  assert.deepEqual([...bots.values()], [{ id: 'a', section: 'Work', unread: 3 }, { id: 'b', section: 'Work', unread: 0 }])
+})
+
+test('a refused rename puts back exactly the bots it moved, not those already in the target', () => {
+  const bots = computerBots({ id: 'w1', section: 'Work', unread: 0 }, { id: 'h', section: 'Home', unread: 0 }, { id: 'w2', section: 'Work', unread: 0 }, { id: 'n', unread: 0 })
+  for (const to of ['Home', undefined]) { // Merged into Home, or removed.
+    const moved = sectionMembers(bots.values(), 'Work')
+    assert.deepEqual(moved, ['w1', 'w2'])
+    apply(bots, placedBots(bots, moved, to))
+    assert.deepEqual([...bots.values()].map((bot) => bot.section), [to, 'Home', to, undefined])
+    apply(bots, placedBots(bots, moved, 'Work'))
+    assert.deepEqual([...bots.values()].map((bot) => bot.section), ['Work', 'Home', 'Work', undefined])
+  }
+})
+
+test('a bot deleted before the refusal comes back stays deleted', () => {
+  assert.deepEqual(placedBots(computerBots({ id: 'a', unread: 0 }), ['gone', 'a'], 'Work'), [['a', { id: 'a', section: 'Work', unread: 0 }]])
 })

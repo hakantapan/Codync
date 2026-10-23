@@ -1,7 +1,7 @@
 import { computerSections, moveInOrder, orderedComputers } from '../lib/computer-roster'
 import { prefs, usePref } from '../lib/prefs'
 import { useModel } from '../lib/observable'
-import { rosterLines, sameRosterGroup, shownRows } from '../lib/roster-sections'
+import { foldsAfterRename, rosterLines, sameRosterGroup, sectionRename, shownRows } from '../lib/roster-sections'
 import type { BotStore } from './bot-store'
 import type { AppModel, BotRef } from './app-model'
 
@@ -28,6 +28,12 @@ export function useComputerRoster(app: AppModel, shown: Set<string>) {
     },
     toggleSection(name: string) {
       setFolded(toggled(folded, name))
+    },
+    /** Renames or removes (null) a section on `store`'s computer; a folded one stays folded under its new name, on this device. */
+    renameSection(store: BotStore, from: string, to: string | null) {
+      store.renameSection(from, to)
+      // Read now: a name dialog saves after the render that built its menu.
+      setFolded(foldsAfterRename(prefs.collapsedRosterSections.get(), from, sectionRename(from, to).to))
     },
     move(id: string, target: string) {
       app.computerOrder.move(id, target, computers.map((c) => c.id))

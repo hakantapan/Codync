@@ -81,6 +81,15 @@ class RosterSectionsTest {
         assertEquals("a".repeat(39) + emoji, limitSectionName("a".repeat(39) + emoji + "b"))
     }
 
+    @Test fun aFoldedSectionRenamedOrRemovedHereTakesItsFoldAlong() {
+        assertEquals(setOf("Home", "Jobs"), foldsAfterRename(setOf("Home", "Work"), "Work", "Jobs"))
+        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home"), "Work", "Jobs")) // Unfolded: nothing changes.
+        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home"), "Work", "Home")) // Never unfolds the target.
+        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home", "Work"), "Work", null)) // Removed: its name goes.
+        assertEquals(setOf("Home"), foldsAfterRename(setOf("Work"), "Work", "Home")) // A merge folds the section it joins.
+        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home", "Work"), "Work", "Home"))
+    }
+
     @Test fun sectionControlsWaitForAHostThatKeepsSections() {
         fun host(version: String?) = AppState(hello = version?.let { buildJsonObject { put("version", it) } })
         assertFalse(host("2.23.0").supportsSections)

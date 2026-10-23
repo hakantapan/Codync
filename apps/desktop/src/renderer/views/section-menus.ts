@@ -23,11 +23,11 @@ export function moveToSectionItems(bot: Bot, store: BotStore, askName: (naming: 
   return [{ title: 'Move to section', icon: 'tray', submenu }]
 }
 
-/** A section header's right-click menu; removing a section keeps its bots, without one. None while the computer runs a host without sections. */
-export function sectionHeaderItems(section: string, store: BotStore, askName: (naming: SectionNaming) => void): MenuItem[] {
+/** A section header's right-click menu, `rename` taking the new name (null: remove it, its bots staying without one). None while the computer runs a host without sections. */
+export function sectionHeaderItems(section: string, store: BotStore, askName: (naming: SectionNaming) => void, rename: (to: string | null) => void): MenuItem[] {
   if (!store.hasRosterSections) return []
   return [
-    { title: 'Rename section…', icon: 'pencil', action: () => askName({ title: 'Rename section', name: section, save: (to) => store.renameSection(section, to) }) },
-    { title: 'Remove section', icon: 'xmark.circle', action: () => store.renameSection(section, null) },
+    { title: 'Rename section…', icon: 'pencil', action: () => askName({ title: 'Rename section', name: section, save: rename }) },
+    { title: 'Remove section', icon: 'xmark.circle', action: () => rename(null) },
   ]
 }

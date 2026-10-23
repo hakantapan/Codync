@@ -79,6 +79,13 @@ internal fun limitSectionName(input: String): String =
 internal fun sectionName(input: String): String? =
     input.trim().takeIf { name -> name.any { !it.isWhitespace() && !it.isISOControl() } }
 
+/**
+ * This device's folded sections after it renames section [from] to [to] (null removes it): a folded [from]
+ * stays folded as [to], so a merge folds the section it joins; an unfolded one changes nothing.
+ */
+internal fun foldsAfterRename(folded: Set<String>, from: String, to: String?): Set<String> =
+    if (from in folded) folded - from + setOfNotNull(to) else folded
+
 /** The sections folded on this device (iOS `@AppStorage("collapsedRosterSections")`); not synced. */
 internal object FoldedSections {
     private const val KEY = "collapsedRosterSections"

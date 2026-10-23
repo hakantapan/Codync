@@ -52,6 +52,29 @@ export function sectionRename(from: string, to: string | null): { from: string; 
   return { from, to: to?.trim() || null }
 }
 
+/**
+ * This device's folded sections after it renames section `from` to `to` (null: removes it): a folded
+ * `from` stays folded under `to`, so a merge folds the section it joins; an unfolded one changes nothing.
+ */
+export function foldsAfterRename(folded: readonly string[], from: string, to: string | null): string[] {
+  if (!folded.includes(from)) return [...folded]
+  const rest = folded.filter((name) => name !== from)
+  return to === null || rest.includes(to) ? rest : [...rest, to]
+}
+
+/** The ids of the bots in section `name`: what renaming or removing it moves, and a refusal moves back (never bots already in the target). */
+export function sectionMembers(bots: Iterable<{ id: string; section?: string }>, name: string): string[] {
+  return [...bots].filter((bot) => bot.section === name).map((bot) => bot.id)
+}
+
+/** The bots with these ids still there, each put in `section` (none: undefined) and otherwise as they are now: a section change shown, or a refused one taken back. */
+export function placedBots<T extends { section?: string }>(bots: ReadonlyMap<string, T>, ids: readonly string[], section: string | undefined): [string, T][] {
+  return ids.flatMap((id): [string, T][] => {
+    const bot = bots.get(id)
+    return bot ? [[id, { ...bot, section }]] : []
+  })
+}
+
 /** The most characters a section name may have, counted as the host counts them (code points). */
 const SECTION_NAME_LIMIT = 40
 

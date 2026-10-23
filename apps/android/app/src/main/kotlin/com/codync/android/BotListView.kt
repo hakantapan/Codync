@@ -62,6 +62,12 @@ import kotlinx.serialization.json.putJsonArray
     var naming by remember { mutableStateOf<SectionNaming?>(null) }
     val context = LocalContext.current
     var folded by remember { mutableStateOf(FoldedSections.load(context)) }
+    // A rename or removal made here keeps a folded section folded under its new name.
+    val renameSection = { from: String, to: String? ->
+        store.renameSection(from, to)
+        folded = foldsAfterRename(folded, from, to)
+        FoldedSections.save(context, folded)
+    }
     val roster = roster(state.bots)
     val sections = menuSections(state.bots)
     val reorder = remember { RosterReorder() }
@@ -93,7 +99,8 @@ import kotlinx.serialization.json.putJsonArray
                     is RosterLine.Header -> SectionHeader(line, toggle = {
                         folded = if (line.name in folded) folded - line.name else folded + line.name
                         FoldedSections.save(context, folded)
-                    }, actions = if (state.supportsSections) sectionActions(line.name, store) { naming = SectionNaming.Rename(line.name) } else emptyList(),
+                    }, actions = if (state.supportsSections) sectionActions(rename = { naming = SectionNaming.Rename(line.name) },
+                        remove = { renameSection(line.name, null) }) else emptyList(),
                         modifier = Modifier.animateItem())
                     RosterLine.Label -> SectionLabel(Modifier.animateItem())
                     is RosterLine.Row -> {
@@ -118,7 +125,7 @@ import kotlinx.serialization.json.putJsonArray
             deleting?.let { store.deleteBot(it) {} }
         })
     }
-    SectionNameDialog(naming, store) { naming = null }
+    SectionNameDialog(naming, store, renameSection) { naming = null }
 }
 
 /**

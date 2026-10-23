@@ -35,12 +35,22 @@ struct BotListView: View {
         withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { collapsedComputers = ids.sorted().joined(separator: ",") }
     }
 
-    private var foldedSections: Set<String> { Set(collapsedRosterSections.split(separator: "\n").map(String.init)) }
+    private var foldedSections: Set<String> {
+        get { Set(collapsedRosterSections.split(separator: "\n").map(String.init)) }
+        nonmutating set { collapsedRosterSections = newValue.sorted().joined(separator: "\n") }
+    }
 
     private func toggleSection(_ name: String) {
         var names = foldedSections
         if names.remove(name) == nil { names.insert(name) }
-        withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { collapsedRosterSections = names.sorted().joined(separator: "\n") }
+        withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { foldedSections = names }
+    }
+
+    /// Renames or removes (nil) a section on `store`'s computer; a folded one stays folded under its
+    /// new name, on this device.
+    private func renameSection(_ name: String, to newName: String?, on store: BotStore) {
+        store.renameSection(from: name, to: newName)
+        foldedSections = RosterSection.folds(foldedSections, renaming: name, to: newName)
     }
 
     private var shownIDs: Set<ComputerID> {
@@ -266,8 +276,10 @@ struct BotListView: View {
         if store.supportsSections {
             header.contextActions {
                 [
-                    MenuItem("Rename section…", icon: "pencil") { naming = .rename(section.name, store) },
-                    MenuItem("Remove section", icon: "xmark.circle") { store.renameSection(from: section.name, to: nil) },
+                    MenuItem("Rename section…", icon: "pencil") {
+                        naming = .rename(section.name) { renameSection(section.name, to: $0, on: store) }
+                    },
+                    MenuItem("Remove section", icon: "xmark.circle") { renameSection(section.name, to: nil, on: store) },
                 ]
             }
         } else {

@@ -35,6 +35,17 @@ public struct RosterSection: Sendable {
             ? String(String.UnicodeScalarView(typed.unicodeScalars.prefix(maxNameLength))) : typed
     }
 
+    /// This device's folded sections after it renames section `from` to `to` (nil removes it): a
+    /// folded `from` stays folded as `to`, so a merge folds the section it joins; an unfolded one
+    /// changes nothing.
+    public static func folds(_ folded: Set<String>, renaming from: String, to: String?) -> Set<String> {
+        guard folded.contains(from) else { return folded }
+        var names = folded
+        names.remove(from)
+        if let to { names.insert(to) }
+        return names
+    }
+
     /// A computer's roster (in `BotStore.roster` order) as the rows on screen: pinned bots, then
     /// each section by name with its bots (none while folded), then the bots in no section, under
     /// the "Bots" label when there are sections. A pinned bot shows only on top, whatever its

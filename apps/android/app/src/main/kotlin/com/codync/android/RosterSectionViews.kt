@@ -89,9 +89,9 @@ internal fun sectionMenu(bot: Bot, sections: List<String>, store: AppStore, newS
 }
 
 /** The header's menu: rename the section, or remove it (its bots stay, without a section). */
-internal fun sectionActions(name: String, store: AppStore, rename: () -> Unit): List<MenuItem> = listOf(
+internal fun sectionActions(rename: () -> Unit, remove: () -> Unit): List<MenuItem> = listOf(
     MenuItem("Rename section…", icon = "pencil", action = rename),
-    MenuItem("Remove section", icon = "xmark.circle") { store.renameSection(name, null) },
+    MenuItem("Remove section", icon = "xmark.circle", action = remove),
 )
 
 /** What the name dialog names: a new section for a bot, or a section to rename. */
@@ -104,7 +104,7 @@ internal sealed interface SectionNaming {
  * "New section" / "Rename section": a name, then Save. A name of nothing saves nothing; the host says what else it refuses.
  * Each opening ([naming] is a new object every time) starts from its own name; the last one stays on show while the dialog fades out.
  */
-@Composable internal fun SectionNameDialog(naming: SectionNaming?, store: AppStore, dismiss: () -> Unit) {
+@Composable internal fun SectionNameDialog(naming: SectionNaming?, store: AppStore, rename: (from: String, to: String) -> Unit, dismiss: () -> Unit) {
     var opened by remember { mutableStateOf<SectionNaming?>(null) }
     var name by remember { mutableStateOf(TextFieldValue()) }
     if (naming != null && naming !== opened) {
@@ -112,7 +112,7 @@ internal sealed interface SectionNaming {
         val start = (naming as? SectionNaming.Rename)?.section.orEmpty()
         name = TextFieldValue(start, TextRange(start.length))
     }
-    val submit = { if (naming != null) sectionName(name.text)?.let { store.nameSection(naming, it) } }
+    val submit = { if (naming != null) sectionName(name.text)?.let { store.nameSection(naming, it, rename) } }
     val focus = remember { FocusRequester() }
     CodyncDialog(if (opened is SectionNaming.Rename) "Rename section" else "New section", naming != null, dismiss, field = {
         LaunchedEffect(Unit) { focus.requestFocus() }
@@ -122,7 +122,9 @@ internal sealed interface SectionNaming {
     }) { listOf(DialogAction("Save", action = submit)) }
 }
 
-private fun AppStore.nameSection(naming: SectionNaming, name: String) = when (naming) {
-    is SectionNaming.New -> setSection(naming.botId, name)
-    is SectionNaming.Rename -> renameSection(naming.section, name)
+private fun AppStore.nameSection(naming: SectionNaming, name: String, rename: (from: String, to: String) -> Unit) {
+    when (naming) {
+        is SectionNaming.New -> setSection(naming.botId, name)
+        is SectionNaming.Rename -> rename(naming.section, name)
+    }
 }
