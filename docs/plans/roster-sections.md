@@ -44,8 +44,8 @@ sections.
   so clients that don't send `section` (older apps) leave it alone. The name is trimmed; an empty
   result clears the section; over 40 characters or containing a control character is refused.
   Validation runs for groups too (today `validate()` returns early for them).
-- New method `renameSection {from, to}` (`host/src/api/bots.rs`, hub logic next to
-  `reorder_bots` in `hub/order.rs`): moves every bot of this computer in `from` to `to` under one
+- New method `renameSection {from, to}` (`host/src/api/bots.rs`, hub logic
+  in `hub/sections.rs`): moves every bot of this computer in `from` to `to` under one
   `emit_lock`, then emits each changed bot. `to: null` removes the section. Renaming onto an
   existing name merges the two. `to` is validated like `updateBot`'s `section`.
 - Bots can't set sections: `section` stays out of `chat/manage.rs` `FIELDS`.

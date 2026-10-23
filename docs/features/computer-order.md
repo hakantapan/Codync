@@ -41,9 +41,18 @@ The order never leaves the device: the cloud stores no computer order.
 A computer's bots (and group chats) keep the order the user drags them into, on every
 device: the host stores it as each bot's `position` (`reorderBots`, `host/src/hub/order.rs`)
 and syncs it like any bot change. Pinned bots stay above the rest, and a bot moves only
-among bots with the same pin state. Until a computer's bots are first arranged, every
-position is 0 and they sort by recent activity; after that they stay put and a new bot
-appears on top. Hidden bots keep their position for when they return.
+among bots with the same pin state; an unpinned bot also stays in its section (pinned rows
+show no sections, so pinned bots reorder among all pinned bots). Until a computer's bots are
+first arranged, every position is 0 and they sort by recent activity; after that they stay put
+and a new bot appears on top. Hidden bots keep their position for when they return.
+
+A bot or group chat can be in one section, a name the user picks (`section`, set with `updateBot`;
+`renameSection` renames, merges into another section's name, or removes one; `host/src/hub/sections.rs`).
+The host trims the name, treats an empty one as none, and refuses one over 40 characters or with a
+control character. The roster shows pinned rows first, then each section under its header sorted by
+name, then rows in no section; inside a section rows keep the order above. A section exists while a
+bot is in it. A pinned bot keeps its section and shows in it again once unpinned; hidden bots keep
+theirs. Each device folds sections for itself.
 
 - **iPhone:** touch and hold a row, then drag it. The roster is a `List` with its styling
   removed, so the system does the reordering: holding still opens the row's menu, and dragging
@@ -55,4 +64,5 @@ appears on top. Hidden bots keep their position for when they return.
   VoiceOver: Move up / Move down. SwiftUI's own drag and drop can't do this:
   with a context menu on the row, a drag never starts on iPhone.
 - **Desktop:** drag a row, or Alt+Up/Down on the selected bot (macOS, Linux, Windows).
-- **Terminal UI:** `J` / `K` move the selected bot down / up.
+- **Terminal UI:** `J` / `K` move the selected bot down / up. `w` moves it to a section (empty takes
+  it out), `W` renames its section (empty removes it), `z` folds or unfolds it.
