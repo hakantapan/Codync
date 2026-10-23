@@ -112,3 +112,32 @@ private func rosterBot(_ id: String, pinned: Bool = false, hidden: Bool = false,
     #expect(store.bots["c"]?.section == nil)
     #expect(await until { store.bots["c"]?.section == "Home" })
 }
+
+@MainActor @Test func botsMoveOnlyAmongTheirPinStateAndSection() throws {
+    let (store, done) = try rosterStore([
+        rosterBot("p1", pinned: true, section: "Work", lastAt: 9), rosterBot("p2", pinned: true, lastAt: 8),
+        rosterBot("w1", section: "Work", lastAt: 7), rosterBot("a", lastAt: 6),
+        rosterBot("w2", section: "Work", lastAt: 5), rosterBot("b", lastAt: 4),
+    ])
+    defer { done() }
+    let order = { store.roster.map(\.id) }
+    let p1 = try #require(store.bots["p1"]), p2 = try #require(store.bots["p2"])
+    let w1 = try #require(store.bots["w1"]), w2 = try #require(store.bots["w2"]), a = try #require(store.bots["a"])
+    #expect(p1.isRosterPeer(of: p2)) // Pinned bots share the top, whatever their sections.
+    #expect(!p1.isRosterPeer(of: w1))
+    #expect(w1.isRosterPeer(of: w2))
+    #expect(!w1.isRosterPeer(of: a)) // Another section: none.
+    #expect(order() == ["p1", "p2", "w1", "a", "w2", "b"])
+    store.move("w2", by: -1) // Past "a", which is in no section: above w1.
+    #expect(order() == ["p1", "p2", "w2", "a", "w1", "b"])
+    store.move("w2", by: -1) // Already first in Work.
+    #expect(order() == ["p1", "p2", "w2", "a", "w1", "b"])
+    store.drop("a", in: ["p1", "p2", "w2", "b", "a", "w1"]) // Dropped below "b", among Work's bots.
+    #expect(order() == ["p1", "p2", "w2", "b", "w1", "a"])
+    store.drop("w1", in: ["w1", "p1", "p2", "w2", "b", "a"]) // Above the pinned bots: first of Work.
+    #expect(order() == ["p1", "p2", "w1", "b", "w2", "a"])
+    store.drop("p1", in: ["p2", "p1", "w1", "b", "w2", "a"])
+    #expect(order() == ["p2", "p1", "w1", "b", "w2", "a"])
+    store.drop("w1", in: ["p2", "p1", "w1", "b", "a"]) // A bot of its section isn't on screen: nothing moves.
+    #expect(order() == ["p2", "p1", "w1", "b", "w2", "a"])
+}

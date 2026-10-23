@@ -196,7 +196,7 @@ struct BotListView: View {
             guard let to = new.firstIndex(of: id), old[to] != id else { return }
             withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { accounts.move(id, to: old[to]) }
         case let .bot(item, store):
-            store.reorder(after.compactMap { $0.botId(on: item.ref.computerId) })
+            store.drop(item.bot.id, in: after.compactMap { $0.botId(on: item.ref.computerId) })
         }
     }
 

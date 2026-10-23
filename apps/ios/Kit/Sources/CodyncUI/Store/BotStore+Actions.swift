@@ -249,13 +249,26 @@ extension BotStore {
         perform(replay: true) { try await $0.reorderBots(ids) }
     }
 
-    /// One place up (-1) or down (+1) among bots with the same pin state (VoiceOver).
+    /// One place up (-1) or down (+1) among the bots it moves with (`isRosterPeer`; VoiceOver).
     public func move(_ botId: String, by offset: Int) {
-        var ids = roster.map(\.id)
-        guard let i = ids.firstIndex(of: botId), ids.indices.contains(i + offset),
-              bots[ids[i + offset]]?.pinned == bots[botId]?.pinned else { return }
-        ids.swapAt(i, i + offset)
-        reorder(ids)
+        guard let bot = bots[botId] else { return }
+        var peers = roster.filter { $0.isRosterPeer(of: bot) }.map(\.id)
+        guard let i = peers.firstIndex(of: botId), peers.indices.contains(i + offset) else { return }
+        peers.swapAt(i, i + offset)
+        drop(botId, in: peers)
+    }
+
+    /// A drop of `botId` where `order` (the rows on screen, top first) puts it among the bots it
+    /// moves with; every other bot keeps its place. Dropped among others (another section, the
+    /// pinned bots), it goes first or last of its own. Nothing moves unless `order` holds all of them.
+    public func drop(_ botId: String, in order: [String]) {
+        guard let bot = bots[botId] else { return }
+        let ids = roster.map(\.id)
+        let isPeer = { (id: String) in self.bots[id]?.isRosterPeer(of: bot) == true }
+        let placed = order.filter(isPeer)
+        guard Set(placed) == Set(ids.filter(isPeer)) else { return }
+        var next = placed.makeIterator()
+        reorder(ids.map { isPeer($0) ? next.next() ?? $0 : $0 })
     }
 
     // MARK: sections

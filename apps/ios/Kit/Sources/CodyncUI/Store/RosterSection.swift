@@ -50,3 +50,11 @@ public enum RosterSectionLine<Item> {
     case header(RosterSection)
     case bot(Item)
 }
+
+extension Bot {
+    /// Whether the user can drag this bot past `other`: pinned bots share the top whatever their
+    /// sections; the rest move within their own section, or among the bots in none.
+    func isRosterPeer(of other: Bot) -> Bool {
+        pinned == other.pinned && (pinned || section == other.section)
+    }
+}
