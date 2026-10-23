@@ -56,6 +56,17 @@ internal fun sectionUpdate(id: String, section: String?): JsonObject = buildJson
 /** `renameSection`: every bot in [from] moves to [to], merging into a section of that name; null removes the section. */
 internal fun sectionRename(from: String, to: String?): JsonObject = buildJsonObject { put("from", from); put("to", to) }
 
+/** The most characters a section name may have (the host refuses more). */
+private const val SECTION_NAME_LIMIT = 40
+
+/** What a name field holds: at most [SECTION_NAME_LIMIT] characters (code points, as the host counts them), never cut inside a surrogate pair. */
+internal fun limitSectionName(input: String): String =
+    if (input.codePointCount(0, input.length) <= SECTION_NAME_LIMIT) input else input.substring(0, input.offsetByCodePoints(0, SECTION_NAME_LIMIT))
+
+/** The section a typed [input] names: trimmed, or null when nothing but whitespace or control characters was typed (the host would clear or remove). */
+internal fun sectionName(input: String): String? =
+    input.trim().takeIf { name -> name.any { !it.isWhitespace() && !it.isISOControl() } }
+
 /** The sections folded on this device (iOS `@AppStorage("collapsedRosterSections")`); not synced. */
 internal object FoldedSections {
     private const val KEY = "collapsedRosterSections"

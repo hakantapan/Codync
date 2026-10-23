@@ -59,9 +59,11 @@ import kotlinx.serialization.json.putJsonArray
 @Composable internal fun BotListView(state: AppState, store: AppStore, account: () -> Unit, manage: () -> Unit,
     newBot: () -> Unit, newGroup: () -> Unit, edit: (Bot) -> Unit, bottomInset: androidx.compose.ui.unit.Dp) {
     var confirmDelete by remember { mutableStateOf<Bot?>(null) }
+    var naming by remember { mutableStateOf<SectionNaming?>(null) }
     val context = LocalContext.current
     var folded by remember { mutableStateOf(FoldedSections.load(context)) }
     val roster = roster(state.bots)
+    val sections = sectionNames(roster)
     val reorder = remember { RosterReorder() }
     reorder.roster = roster
     val online = state.actualConnection is LinkState.Ready
@@ -91,14 +93,16 @@ import kotlinx.serialization.json.putJsonArray
                     is RosterLine.Header -> SectionHeader(line, toggle = {
                         folded = if (line.name in folded) folded - line.name else folded + line.name
                         FoldedSections.save(context, folded)
-                    }, actions = emptyList(), modifier = Modifier.animateItem())
+                    }, actions = if (state.supportsSections) sectionActions(line.name, store) { naming = SectionNaming.Rename(line.name) } else emptyList(),
+                        modifier = Modifier.animateItem())
                     is RosterLine.Row -> {
                         val bot = line.bot
                         val lifted = reorder.dragged == bot.id
                         Box(Modifier.onSizeChanged { reorder.heights[bot.id] = it.height }
                             .then(if (lifted) Modifier.zIndex(1f).graphicsLayer { translationY = reorder.offset; scaleX = 1.02f; scaleY = 1.02f }
                                 else Modifier.animateItem())) {
-                            BotRowItem(bot, state, store, reorder.handle(bot.id) { store.reorder(it) }, edit = { edit(bot) }, delete = { confirmDelete = bot })
+                            BotRowItem(bot, state, store, reorder.handle(bot.id) { store.reorder(it) }, sections, edit = { edit(bot) },
+                                delete = { confirmDelete = bot }, newSection = { naming = SectionNaming.New(bot.id) })
                         }
                     }
                 }
@@ -113,6 +117,7 @@ import kotlinx.serialization.json.putJsonArray
             deleting?.let { store.deleteBot(it) {} }
         })
     }
+    SectionNameDialog(naming, store) { naming = null }
 }
 
 /**
@@ -173,14 +178,16 @@ internal fun moved(roster: List<Bot>, id: String, offset: Int): List<String>? {
 
 private fun Bot.movesWith(other: Bot) = pinned == other.pinned && (pinned || section == other.section)
 
-@Composable private fun BotRowItem(bot: Bot, state: AppState, store: AppStore, drag: ContextDrag, edit: () -> Unit, delete: () -> Unit) {
+@Composable private fun BotRowItem(bot: Bot, state: AppState, store: AppStore, drag: ContextDrag, sections: List<String>, edit: () -> Unit,
+    delete: () -> Unit, newSection: () -> Unit) {
     Box(Modifier.fillMaxWidth().contextActions(onClick = { store.openBot(bot.id) }, reorder = drag, preview = {
         Box(Modifier.padding(horizontal = 8.dp)) { BotRow(bot, state) }
     }) {
-        listOf(
+        listOfNotNull(
             MenuItem(if (bot.pinned) "Unpin" else "Pin", icon = if (bot.pinned) "pin.slash" else "pin") {
                 store.command("updateBot", buildJsonObject { put("id", bot.id); put("pinned", !bot.pinned) }, "roster:" + bot.id)
             },
+            if (state.supportsSections) sectionMenu(bot, sections, store, newSection) else null,
             if (bot.kind == "group") MenuItem("Edit group", icon = "person.2", action = edit)
             else MenuItem("Edit profile", icon = "pencil", action = edit),
             MenuItem("Mark as read", icon = "checkmark.message") {

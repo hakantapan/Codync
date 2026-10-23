@@ -52,6 +52,23 @@ class RosterSectionsTest {
         assertEquals(JsonNull, sectionRename("Work", null)["to"])
     }
 
+    @Test fun aTypedSectionNameIsTrimmedAndANameOfNothingIsNoName() {
+        assertEquals("Work", sectionName("  Work \n"))
+        assertEquals("Side projects", sectionName("Side projects"))
+        listOf("", "   ", "\t\n", "\u00A0", "\u0000", " \u0000 \t").forEach { assertNull(it, sectionName(it)) }
+    }
+
+    @Test fun aNameFieldStopsAtFortyCharactersAsTheHostCountsThemNeverInsideAnEmoji() {
+        val forty = "a".repeat(40)
+        assertEquals(forty, limitSectionName(forty))
+        assertEquals(forty, limitSectionName(forty + "b"))
+        // An emoji is two UTF-16 units but one character: 40 of them fit, a 41st is cut whole.
+        val emoji = "\uD83D\uDE00"
+        assertEquals(emoji.repeat(40), limitSectionName(emoji.repeat(40)))
+        assertEquals(emoji.repeat(40), limitSectionName(emoji.repeat(41)))
+        assertEquals("a".repeat(39) + emoji, limitSectionName("a".repeat(39) + emoji + "b"))
+    }
+
     @Test fun sectionControlsWaitForAHostThatKeepsSections() {
         fun host(version: String?) = AppState(hello = version?.let { buildJsonObject { put("version", it) } })
         assertFalse(host("2.22.2").supportsSections)
