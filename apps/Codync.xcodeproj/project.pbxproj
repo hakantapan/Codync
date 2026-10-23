@@ -43,6 +43,7 @@
 		7E5F670CFFA0E4373F44DB41 /* AccountSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31BFDAD6DCCE1CC98642ACDD /* AccountSession.swift */; };
 		8157F3E9CFB390CBCB1A9F9A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4815867922559696EDCA47FD /* Assets.xcassets */; };
 		8517F8FC5AFAFF1527369829 /* NotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6932F782C1B87C9608359A6 /* NotificationService.swift */; };
+		864E7C2DC7600E9DA58E2BD6 /* RosterSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36C62636FD789C49762696A3 /* RosterSectionHeader.swift */; };
 		89CA3972915769DBA315876F /* Push.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3BF4D3B82FE8274F610C703 /* Push.swift */; };
 		8B5CCF45DEE9149BB11333C4 /* CodyncBot-pebble-Ink.ttf in Resources */ = {isa = PBXBuildFile; fileRef = F4375A206703EC65F0D15BD6 /* CodyncBot-pebble-Ink.ttf */; };
 		8B78A34695AD94109AE82C0F /* CodyncBot-blob-Tint.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D0E552136D473567E0C25ED4 /* CodyncBot-blob-Tint.ttf */; };
@@ -123,6 +124,7 @@
 		2C0E04490F5C56FD070539E6 /* ViewingBadge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewingBadge.swift; sourceTree = "<group>"; };
 		305DDCC18BB8AA6CD9D19CEF /* WidgetPreviews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetPreviews.swift; sourceTree = "<group>"; };
 		31BFDAD6DCCE1CC98642ACDD /* AccountSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSession.swift; sourceTree = "<group>"; };
+		36C62636FD789C49762696A3 /* RosterSectionHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RosterSectionHeader.swift; sourceTree = "<group>"; };
 		3F4C4D3B64C608AEF2F85F91 /* Kit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Kit; path = ios/Kit; sourceTree = SOURCE_ROOT; };
 		445DB0A03CFBB5CC7A830139 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		4815867922559696EDCA47FD /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -297,6 +299,7 @@
 				6FC76D28AB02DF1427D530ED /* LaunchSplash.swift */,
 				ECD0B4EA4BBA2BB2826C4362 /* PairingView.swift */,
 				B6E13F8EA6C7B0DA4D899FEE /* RootView.swift */,
+				36C62636FD789C49762696A3 /* RosterSectionHeader.swift */,
 				0A87B0091DAF0E4807D62017 /* SettingsView.swift */,
 				9AD0BD16672E128A4F26272B /* SignInButtons.swift */,
 				CFEBE2E6A9D0AF0A0D89FFE7 /* UsageView.swift */,
@@ -679,6 +682,7 @@
 				719EABCBBAC0A973D729363A /* PairingView.swift in Sources */,
 				89CA3972915769DBA315876F /* Push.swift in Sources */,
 				0631979397E0D6822747E03A /* RootView.swift in Sources */,
+				864E7C2DC7600E9DA58E2BD6 /* RosterSectionHeader.swift in Sources */,
 				BF77DD7946621D8818EDAB9B /* SettingsView.swift in Sources */,
 				76E77CC8A2B7C74213512FAB /* SignInButtons.swift in Sources */,
 				684F7F77EECBA0BD95BDD658 /* UsageView.swift in Sources */,

@@ -49,9 +49,10 @@ appears on top. Hidden bots keep their position for when they return.
   removed, so the system does the reordering: holding still opens the row's menu, and dragging
   the lifted row moves it, also once the menu shows, unless the finger goes into the menu. Lifted,
   the row is a rounded card: it fills while the system holds its drag item (`BotListView.lift`). A bot
-  moves only among its own computer's bots: dropped above or below them, among another computer's,
-  it goes first or last. The drop saves the order (`BotListView.moveLines`,
-  `BotStore.reorder`). VoiceOver: Move up / Move down. SwiftUI's own drag and drop can't do this:
+  moves only among its own computer's bots with the same pin state and, unpinned, the same section:
+  dropped among others (another section, another computer's), it goes first or last of its own. The
+  drop saves the order (`BotListView.moveLines`, `BotStore.drop`). Section headings don't move.
+  VoiceOver: Move up / Move down. SwiftUI's own drag and drop can't do this:
   with a context menu on the row, a drag never starts on iPhone.
 - **Desktop:** drag a row, or Alt+Up/Down on the selected bot (macOS, Linux, Windows).
 - **Terminal UI:** `J` / `K` move the selected bot down / up.
