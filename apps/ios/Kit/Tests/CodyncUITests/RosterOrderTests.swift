@@ -83,3 +83,32 @@ private func rosterBot(_ id: String, pinned: Bool = false, hidden: Bool = false,
     defer { done() }
     #expect(store.sections == ["Hidden", "Pinned", "Work"]) // Hidden and pinned bots keep theirs.
 }
+
+@MainActor @Test func sectionMenusNeedAHostThatKnowsSections() throws {
+    let (store, done) = rosterStore([])
+    defer { done() }
+    #expect(!store.supportsSections) // The host hasn't answered yet.
+    store.hostVersion = HostVersion(version: "2.22.2")
+    #expect(!store.supportsSections)
+    store.hostVersion = HostVersion(version: "2.23.0")
+    #expect(store.supportsSections)
+    store.hostVersion = HostVersion(version: "2.24.1-dev")
+    #expect(store.supportsSections)
+}
+
+@MainActor @Test func sectionChangesShowAtOnceAndUndoWhenRefused() async throws {
+    let (store, done) = try rosterStore([rosterBot("a"), rosterBot("b", section: "Work"), rosterBot("c", section: "Home")])
+    defer { done() }
+    store.connection = .unauthorized("No access") // Every call fails at once.
+    store.setSection(try #require(store.bots["a"]), to: "Work")
+    #expect(store.bots["a"]?.section == "Work")
+    #expect(await until { store.bots["a"]?.section == nil })
+    #expect(store.lastError != nil)
+    store.renameSection(from: "Work", to: "Home") // Onto a name in use: the two merge.
+    #expect(store.sections == ["Home"])
+    #expect(await until { store.bots["b"]?.section == "Work" })
+    #expect(store.bots["c"]?.section == "Home") // Already in "Home": the undo leaves it.
+    store.renameSection(from: "Home", to: nil)
+    #expect(store.bots["c"]?.section == nil)
+    #expect(await until { store.bots["c"]?.section == "Home" })
+}

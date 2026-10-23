@@ -56,12 +56,15 @@ extension BotStore {
         }
     }
 
-    /// Fire-and-forget actions; only what waiting and retrying couldn't settle reaches the dialog.
-    private func perform(replay: Bool = false, _ op: @escaping @MainActor (HostClient) async throws -> Void) {
+    /// Fire-and-forget actions; only what waiting and retrying couldn't settle reaches the dialog,
+    /// after `undo` takes back what the action already showed.
+    private func perform(replay: Bool = false, undo: @escaping @MainActor () -> Void = {},
+                         _ op: @escaping @MainActor (HostClient) async throws -> Void) {
         Task {
             do {
                 try await withLink(replay: replay, op)
             } catch {
+                undo()
                 lastError = error.localizedDescription
             }
         }
@@ -253,6 +256,29 @@ extension BotStore {
               bots[ids[i + offset]]?.pinned == bots[botId]?.pinned else { return }
         ids.swapAt(i, i + offset)
         reorder(ids)
+    }
+
+    // MARK: sections
+
+    /// Puts the bot in `section` (nil: out of its own), shown at once and taken back if the
+    /// computer refuses the name (it allows 40 characters, no control characters).
+    public func setSection(_ bot: Bot, to section: String?) {
+        let before = bots[bot.id]?.section
+        place([bot.id], in: section)
+        perform(replay: true, undo: { self.place([bot.id], in: before) }) { try await $0.setSection(bot.id, to: section) }
+    }
+
+    /// Moves every bot of this computer in section `name` to `newName` (a name already in use
+    /// merges the two); nil removes the section, its bots staying without one.
+    public func renameSection(from name: String, to newName: String?) {
+        let moved = bots.values.filter { $0.section == name }.map(\.id)
+        place(moved, in: newName)
+        perform(replay: true, undo: { self.place(moved, in: name) }) { try await $0.renameSection(from: name, to: newName) }
+    }
+
+    /// Shows the bots in `section` before the computer confirms it; its `bot` events follow.
+    private func place(_ ids: [String], in section: String?) {
+        Motion.animate { for id in ids { bots[id]?.section = section } }
     }
 
     public func delete(_ bot: Bot) {
