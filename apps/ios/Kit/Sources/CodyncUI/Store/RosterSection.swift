@@ -18,6 +18,19 @@ public struct RosterSection: Sendable {
         }
     }
 
+    /// The section a typed name names: trimmed, nil when nothing but whitespace or control
+    /// characters was typed (the host would clear the section or refuse it).
+    public static func name(typed: String) -> String? {
+        let name = typed.trimmingCharacters(in: .whitespacesAndNewlines.union(.controlCharacters))
+        return name.isEmpty ? nil : name
+    }
+
+    /// What a name box may hold: at most 40 Unicode scalars, as the host counts them; a name
+    /// within that (one the host accepted) is never cut.
+    public static func limited(_ typed: String) -> String {
+        typed.unicodeScalars.count > 40 ? String(String.UnicodeScalarView(typed.unicodeScalars.prefix(40))) : typed
+    }
+
     /// A computer's roster (in `BotStore.roster` order) as the rows on screen: pinned bots, then
     /// each section by name with its bots (none while folded), then the bots in no section. A
     /// pinned bot shows only on top, whatever its section; every part keeps the roster's order.

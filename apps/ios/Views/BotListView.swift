@@ -214,19 +214,17 @@ struct BotListView: View {
             // Read as the dialog shows: closing clears `naming`.
             let target = naming
             return [DialogAction("Save") {
-                let name = sectionName.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard let target, !name.isEmpty else { return }
+                guard let target, let name = RosterSection.name(typed: sectionName) else { return }
                 switch target {
                 case let .new(bot, store): store.setSection(bot, to: name)
                 case let .rename(old, store): store.renameSection(from: old, to: name)
                 }
             }]
         }
-        // The computer takes 40 characters (Unicode scalars, as it counts them): stop typing there.
-        // A rename starts from an accepted name, so it's never cut.
+        // Typing stops where the computer's limit is.
         .onChange(of: sectionName) {
-            let scalars = sectionName.unicodeScalars
-            if scalars.count > 40 { sectionName = String(String.UnicodeScalarView(scalars.prefix(40))) }
+            let limited = RosterSection.limited(sectionName)
+            if limited != sectionName { sectionName = limited }
         }
     }
 
@@ -277,7 +275,8 @@ struct BotListView: View {
     /// A section's heading: tap folds its bots away (on this device); touch and hold to rename or
     /// remove it, its bots staying without one. An older computer has no section menu.
     @ViewBuilder private func sectionHeading(_ section: RosterSection, store: BotStore) -> some View {
-        let header = RosterSectionHeader(section: section) { toggleSection(section.name) }.moveDisabled(true)
+        let header = RosterSectionHeader(section: section, hasMenu: store.supportsSections) { toggleSection(section.name) }
+            .moveDisabled(true)
         if store.supportsSections {
             header.contextActions {
                 [

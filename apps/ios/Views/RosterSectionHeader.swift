@@ -7,6 +7,8 @@ import SwiftUI
 /// messages its bots hold.
 struct RosterSectionHeader: View {
     let section: RosterSection
+    /// Whether touch and hold opens its menu (rename, remove): not on a computer without sections.
+    let hasMenu: Bool
     let toggle: () -> Void
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -36,15 +38,16 @@ struct RosterSectionHeader: View {
                 .rotationEffect(.degrees(section.folded ? -90 : 0))
                 .accessibilityHidden(true)
         }
-        .padding(.top, 12)
-        .padding(.bottom, 4)
+        // `ComputerSection`'s 14 + 6 points above and 2 + 6 below: about 46 points to tap.
+        .padding(.top, 20)
+        .padding(.bottom, 8)
         .contentShape(Rectangle())
         .onTapGesture(perform: toggle)
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits([.isHeader, .isButton])
         .accessibilityLabel(spoken)
         .accessibilityValue(section.folded ? "Collapsed" : "Expanded")
-        .accessibilityHint("Double-tap to fold or expand. Touch and hold to rename or remove the section.")
+        .accessibilityHint(hasMenu ? "Double-tap to fold or expand. Touch and hold to rename or remove the section." : "Double-tap to fold or expand.")
         .accessibilityAction(named: section.folded ? "Expand" : "Collapse", toggle)
         .accessibilityAction(.default) { toggle() }
     }

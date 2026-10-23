@@ -75,6 +75,18 @@ private func rosterBot(_ id: String, pinned: Bool = false, hidden: Bool = false,
     #expect(RosterSection.lines([roster[0]], folded: []) { $0 }.count == 1)
 }
 
+@Test func typedSectionNamesAreTrimmedAndCappedLikeTheHost() {
+    #expect(RosterSection.name(typed: "") == nil)
+    #expect(RosterSection.name(typed: " \n\t ") == nil)
+    #expect(RosterSection.name(typed: "\u{1}\u{7F} ") == nil) // Control characters only.
+    #expect(RosterSection.name(typed: "  Work ") == "Work")
+    // 40 Unicode scalars, as the host counts them: "é" written as e + accent is two.
+    let forty = String(repeating: "e\u{301}", count: 20)
+    #expect(RosterSection.limited(forty) == forty)
+    #expect(RosterSection.limited(forty + "x") == forty)
+    #expect(RosterSection.limited("Work") == "Work")
+}
+
 @MainActor @Test func sectionMenuListsEverySectionOnTheComputer() throws {
     let (store, done) = try rosterStore([
         rosterBot("a", section: "Work"), rosterBot("p", pinned: true, section: "Pinned"),
