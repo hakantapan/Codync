@@ -238,7 +238,7 @@ export class BotMirror extends Observable {
 }
 
 /** The first host with roster sections. */
-const ROSTER_SECTIONS_HOST = '2.23.0'
+const ROSTER_SECTIONS_HOST = '2.24.0'
 
 export function builtInBackendName(id: string) {
   switch (id) {

@@ -71,8 +71,8 @@ class RosterSectionsTest {
 
     @Test fun sectionControlsWaitForAHostThatKeepsSections() {
         fun host(version: String?) = AppState(hello = version?.let { buildJsonObject { put("version", it) } })
-        assertFalse(host("2.22.2").supportsSections)
-        assertTrue(host("2.23.0").supportsSections)
+        assertFalse(host("2.23.0").supportsSections)
+        assertTrue(host("2.24.0").supportsSections)
         assertTrue(host("2.24.1-dev").supportsSections)
         assertFalse(host(null).supportsSections)
     }

@@ -53,7 +53,7 @@ sections.
   (`analytics/observe.rs`, `docs/reference/analytics-events.md`). Names are never sent.
 - Compatibility: additive (a new optional field and a new method), so `MIN_APP` / `MIN_HOST` stay.
   Clients show the section controls only when the host's version (from `hello`) is at least the
-  release that ships this (2.23.0 at the time of writing).
+  release that ships this (2.24.0 at the time of writing).
 
 ## Clients
 

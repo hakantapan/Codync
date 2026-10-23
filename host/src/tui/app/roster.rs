@@ -8,7 +8,7 @@ use super::super::manage::{Submit, section_fields};
 use super::{App, Bot, Overlay};
 
 /// The first host with roster sections (`section`, `renameSection`).
-const SECTIONS_SINCE: &str = "2.23.0";
+const SECTIONS_SINCE: &str = "2.24.0";
 
 /// One line of the roster.
 pub enum RosterLine<'a> {
@@ -287,10 +287,10 @@ mod tests {
         app.ask_section();
         assert!(app.overlays.is_empty(), "no hello yet: the host's version is unknown");
         assert_eq!(app.hint.as_ref().map(|(s, _)| s.as_str()), Some("Still connecting: try again in a moment."));
-        app.host_version = "2.22.2".into();
+        app.host_version = "2.23.0".into();
         app.ask_section();
         assert!(app.overlays.is_empty(), "an older host would drop the name");
-        app.host_version = "2.23.0".into();
+        app.host_version = "2.24.0".into();
         app.ask_section();
         let Some(Overlay::Fields(f)) = app.overlays.last() else { panic!("the section prompt") };
         assert_eq!((f.title.as_str(), f.inputs[0].ed.text.as_str()), ("Move to section", "Work"));

@@ -44,7 +44,7 @@ internal fun rosterLines(roster: List<Bot>, folded: Set<String>): List<RosterLin
 internal fun sectionNames(bots: List<Bot>): List<String> = bots.mapNotNull(Bot::section).distinct().sortedWith(Collator.getInstance())
 
 /** The first host version that keeps sections (`section` on bots, `renameSection`). */
-private const val SECTIONS_HOST = "2.23.0"
+private const val SECTIONS_HOST = "2.24.0"
 
 /** Section controls show only for a host that keeps sections; before its `hello` (offline) they stay hidden. */
 internal val AppState.supportsSections: Boolean
