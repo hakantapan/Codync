@@ -59,6 +59,11 @@ pub enum Reply {
     Auth(String),
     Setup,
     FieldsSaved,
+    /// `renameSection` from a Fields sheet: saved like `FieldsSaved`, and the fold follows the name.
+    SectionRenamed {
+        from: String,
+        to: Option<String>,
+    },
     SignIn,
     Models(String),
     Downloaded,

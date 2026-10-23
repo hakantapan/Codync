@@ -5,7 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::Span;
 
-use super::super::app::{App, Bot, Click, Focus, Mark, RosterLine, Status, cursor_line, roster_lines, stops};
+use super::super::app::{App, Bot, Focus, Mark, RosterLine, Status, cursor_line, roster_lines, stops};
 use super::super::md::{self, truncate, width as w};
 use super::buffer::{fill, hline, put, put_line, restyle, rput, u};
 use super::style::{avatar, glyph, theme};
@@ -67,6 +67,9 @@ pub(super) fn roster(buf: &mut Buffer, r: Rect, app: &mut App, narrow: bool) {
         if ry < offset || yy + extent(line).1 > bottom {
             continue;
         }
+        if let Some(click) = line.click() {
+            app.hits.clicks.push((Rect::new(x0, yy, wd, extent(line).1), click));
+        }
         let cursor_bar = (cursor == Some(i)).then_some(bar);
         match line {
             RosterLine::Label(l) => {
@@ -113,10 +116,9 @@ fn section_row(buf: &mut Buffer, row: Rect, bar: Option<Style>, name: &str, bots
 }
 
 /// A bot's two rows: avatar, name, status glyph and time, then its preview and unread badge.
-fn bot_row(buf: &mut Buffer, row: Rect, app: &mut App, b: &Bot, bar: Option<Style>) {
+fn bot_row(buf: &mut Buffer, row: Rect, app: &App, b: &Bot, bar: Option<Style>) {
     let t = theme();
     let (x0, y) = (row.x, row.y);
-    app.hits.clicks.push((row, Click::Bot(b.id.clone())));
     if let Some(bar) = bar {
         mark_cursor(buf, row, bar);
     }
@@ -173,13 +175,16 @@ pub(super) fn compact_roster(buf: &mut Buffer, r: Rect, app: &mut App) {
     let per = 2u16;
     let view = r.height.saturating_sub(1) / per;
     let offset = (u(at) + 1).saturating_sub(view);
-    for (n, &(i, id)) in cells.iter().enumerate().skip(usize::from(offset)) {
+    for (n, &(i, _)) in cells.iter().enumerate().skip(usize::from(offset)) {
         let y = r.y + 1 + (u(n) - offset) * per;
         if y >= r.bottom() {
             break;
         }
         let row = Rect::new(r.x, y, r.width, 1);
-        app.hits.clicks.push((row, Click::Bot(id.to_owned())));
+        // A folded section's cell unfolds it, like its label in the full roster.
+        if let Some(click) = lines[i].click() {
+            app.hits.clicks.push((row, click));
+        }
         if cursor == Some(i) {
             mark_cursor(buf, row, if app.focus == Focus::Roster { t.bold } else { t.secondary });
         }

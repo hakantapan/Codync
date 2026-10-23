@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use icu_normalizer::DecomposingNormalizerBorrowed;
 
 use super::super::manage::{Submit, section_fields};
-use super::{App, Bot, Overlay};
+use super::{App, Bot, Click, Overlay};
 
 /// The first host with roster sections (`section`, `renameSection`).
 const SECTIONS_SINCE: &str = "2.24.0";
@@ -105,6 +105,26 @@ impl RosterLine<'_> {
             _ => None,
         }
     }
+
+    /// What a click on this line does: a section's label folds or unfolds it, a bot's row selects it.
+    pub fn click(&self) -> Option<Click> {
+        match self {
+            Self::Section { name, .. } => Some(Click::Section((*name).to_owned())),
+            Self::Bot(b) => Some(Click::Bot(b.id.clone())),
+            Self::Label(_) => None,
+        }
+    }
+}
+
+/// Keeps a section's fold through a rename on this device: a folded `from` stays folded as `to` (a
+/// merge folds the section it joins) and is forgotten when removed (`to` is `None`); an unfolded
+/// `from` changes nothing, so `to` is never unfolded.
+pub fn rename_fold(folded: &mut HashSet<String>, from: &str, to: Option<&str>) {
+    if folded.remove(from)
+        && let Some(to) = to
+    {
+        folded.insert(to.to_owned());
+    }
 }
 
 /// What the cursor can stop on, in order, as (line, bot id): the bots shown and each folded section
@@ -163,8 +183,13 @@ impl App {
             self.flash(NOT_IN_A_SECTION);
             return;
         };
-        if !self.folded.remove(&name) {
-            self.folded.insert(name);
+        self.toggle_fold(&name);
+    }
+
+    /// Folds section `name`, or unfolds it (`z`, a click on its label).
+    pub(super) fn toggle_fold(&mut self, name: &str) {
+        if !self.folded.remove(name) {
+            self.folded.insert(name.to_owned());
         }
     }
 
@@ -215,9 +240,12 @@ impl App {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{Bot, Overlay, test_app};
-    use super::{App, NOT_IN_A_SECTION, RosterLine, cursor_line, roster_lines};
+    use super::super::{Bot, Click, Overlay, test_app};
+    use super::{App, NOT_IN_A_SECTION, RosterLine, cursor_line, rename_fold, roster_lines};
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    use ratatui::layout::Rect;
     use serde_json::json;
+    use std::collections::HashSet;
 
     fn add(app: &mut App, id: &str, pinned: bool, section: Option<&str>, last_at: i64, unread: i64) {
         let v = json!({"id": id, "pinned": pinned, "section": section, "lastAt": last_at, "unread": unread});
@@ -299,6 +327,49 @@ mod tests {
         app.folded.insert("Work".into());
         let at = [0, 1, 2].map(|n| app.stop_at(n));
         assert_eq!(at, [Some("a".into()), Some("c".into()), None], "1 is the section's first bot, 2 the next row");
+    }
+
+    #[tokio::test]
+    async fn a_click_on_a_section_folds_or_unfolds_it_and_keeps_the_selection() {
+        let mut app = test_app();
+        for (id, section, last_at) in [("a", Some("Work"), 3), ("b", Some("Work"), 2), ("c", None, 1)] {
+            add(&mut app, id, false, section, last_at, 0);
+        }
+        app.selected = Some("c".into());
+        let click = MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: 4,
+            row: 0,
+            modifiers: KeyModifiers::NONE,
+        };
+        for folded in [true, false] {
+            // The label's click, as the full roster and the compact strip (folded: its one cell) register it.
+            let section = roster_lines(&app.roster(), &app.folded).iter().find_map(|l| match l {
+                RosterLine::Section { .. } => l.click(),
+                _ => None,
+            });
+            assert!(matches!(&section, Some(Click::Section(name)) if name == "Work"));
+            app.hits.clicks = section.into_iter().map(|c| (Rect::new(0, 0, 20, 1), c)).collect();
+            app.on_mouse(click);
+            assert_eq!(app.folded.contains("Work"), folded);
+            assert_eq!(app.selected.as_deref(), Some("c"), "the selection stays");
+        }
+    }
+
+    #[test]
+    fn a_rename_keeps_a_folded_section_folded_under_its_new_name() {
+        let fold = |folded: &[&str], from: &str, to: Option<&str>| {
+            let mut set: HashSet<String> = folded.iter().map(|&s| s.to_owned()).collect();
+            rename_fold(&mut set, from, to);
+            let mut v: Vec<String> = set.into_iter().collect();
+            v.sort();
+            v
+        };
+        assert_eq!(fold(&["Work", "Home"], "Work", Some("Play")), ["Home", "Play"], "folded: the fold moves");
+        assert_eq!(fold(&["Home"], "Work", Some("Play")), ["Home"], "unfolded: nothing changes");
+        assert_eq!(fold(&["Work"], "Work", None), Vec::<String>::new(), "removed: forgotten");
+        assert_eq!(fold(&["Work"], "Work", Some("Home")), ["Home"], "merged: the joined section folds");
+        assert_eq!(fold(&["Home"], "Work", Some("Home")), ["Home"], "an unfolded merge never unfolds it");
     }
 
     #[tokio::test]

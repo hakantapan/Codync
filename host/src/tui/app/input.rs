@@ -411,6 +411,10 @@ impl App {
                     }
                     Some(Click::Composer) => self.start_typing(),
                     Some(Click::BotChat(entry)) => self.open_bot_chat(&entry),
+                    Some(Click::Section(name)) => {
+                        self.toggle_fold(&name);
+                        self.focus = Focus::Roster;
+                    }
                     None => {
                         if self.overlays.is_empty() {
                             if self.hits.trace.contains(at) {

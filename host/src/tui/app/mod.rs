@@ -18,7 +18,7 @@ mod ui;
 pub use editor::Editor;
 pub use exchange::{ConversationRow, Exchange, Item, Outcome, conversation, group, rows};
 pub use model::{After, AgentModel, Bot, Entry, Kind, Mark, ModelOption, Msg, Status};
-pub use roster::{RosterLine, cursor_line, roster_lines, stops};
+pub use roster::{RosterLine, cursor_line, rename_fold, roster_lines, stops};
 pub use slash::SlashAction;
 pub use ui::{
     ACTIONS, Action, COLORS, Click, Confirm, ConfirmAct, Dir, FIELDS, FILTERS, Field, Focus, FolderPicker, Form, Goto,
