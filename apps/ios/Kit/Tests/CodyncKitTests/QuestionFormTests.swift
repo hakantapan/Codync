@@ -56,6 +56,13 @@ private let extras = QuestionField(key: "question_1", kind: "multi", title: "Ext
     #expect(QuestionForm.hasAnswer(["question_1": ["Cache"]]))
 }
 
+@Test func submitShowsExceptOnAOneTapCardWithNothingTyped() {
+    #expect(!QuestionForm.showsSubmit([db, other], [:]))
+    #expect(QuestionForm.showsSubmit([db, other], ["question_0_custom": ["MySQL"]]))
+    #expect(QuestionForm.showsSubmit([db, other, extras], [:]))
+    #expect(QuestionForm.showsSubmit([other], [:]))
+}
+
 @Test func theAnsweredCardShowsEachAnswer() {
     #expect(QuestionForm.outcome(status: "answered", answer: ["PostgreSQL", "Cache, Queue"]) == "✓ PostgreSQL\n✓ Cache, Queue")
     #expect(QuestionForm.outcome(status: "declined", answer: nil) == "Skipped")

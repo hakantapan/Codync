@@ -1,4 +1,4 @@
-import type { QuestionAnswers, QuestionField } from '../../../shared/models.ts'
+import type { QuestionAnswers, QuestionField } from '../../../shared/question.ts'
 
 const typed = (fields: QuestionField[], answers: QuestionAnswers) =>
   fields.some((f) => f.kind === 'text' && (answers[f.key]?.[0] ?? '').trim() !== '')
@@ -21,6 +21,9 @@ export function pick(answers: QuestionAnswers, field: QuestionField, value: stri
 
 /** Whether Submit has anything to send. */
 export const hasAnswer = (answers: QuestionAnswers) => Object.values(answers).some((v) => v.some((s) => s.trim() !== ''))
+
+/** Whether the card shows Submit: always, except on a one-tap card with nothing typed. */
+export const showsSubmit = (fields: QuestionField[], answers: QuestionAnswers) => !sendsOnTap(fields, answers) || hasAnswer(answers)
 
 /** The answered card's line: what was picked or typed, or how it ended. */
 export function questionOutcome(status: string | undefined, answer: string[] | null | undefined): string {

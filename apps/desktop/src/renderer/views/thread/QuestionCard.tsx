@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import type { Entry, QuestionAnswers, QuestionField } from '@shared/models'
+import type { Entry } from '@shared/models'
+import type { QuestionAnswers, QuestionField } from '@shared/question'
 import { Button, Spinner } from '../../components/Controls'
 import { Icon } from '../../components/Icon'
 import { HStack, VStack } from '../../components/Stack'
 import { Text } from '../../components/Text'
 import { Field } from '../marketplace/pieces'
-import { hasAnswer, pick, questionOutcome, sendsOnTap, startsOpen } from './question-form'
+import { hasAnswer, pick, questionOutcome, sendsOnTap, showsSubmit, startsOpen } from './question-form'
 import './permission-card.css'
 import './question-card.css'
 
@@ -48,7 +49,7 @@ export function QuestionCard({ entry, answering, respond }: { entry: Entry; answ
             <HStack gap={8} className="question-card-actions">
               {answering ? <Spinner size={14} /> : <>
                 <Button kind="secondary" onClick={() => respond(null)}>Skip</Button>
-                {sendsOnTap(fields, answers) && !hasAnswer(answers) ? null : <Button disabled={!hasAnswer(answers)} onClick={() => respond(answers)}>Submit</Button>}
+                {showsSubmit(fields, answers) ? <Button disabled={!hasAnswer(answers)} onClick={() => respond(answers)}>Submit</Button> : null}
               </>}
             </HStack>
           </>
@@ -102,7 +103,7 @@ function TextAnswer({ field, open, autoFocus, disabled, value, onOpen, onChange 
   }
   return (
     <div className="question-text-field">
-      <Field value={value} onChange={onChange} label={title} placeholder={field.description ?? title} lines={[2, 6]} autoFocus={autoFocus} disabled={disabled} />
+      <Field value={value} onChange={onChange} label={title} placeholder={field.description ?? title} lines={[2, 6]} autoFocus={autoFocus} disabled={disabled} spellCheck />
     </div>
   )
 }

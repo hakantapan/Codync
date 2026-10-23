@@ -18,7 +18,7 @@ struct QuestionCard: View {
     private var fields: [QuestionField] { d.fields ?? [] }
     private var pending: Bool { d.status == "pending" }
     /// A single choice with nothing picked yet answers on its tap; Submit would only get in the way.
-    private var showsSubmit: Bool { !(QuestionForm.sendsOnTap(fields, answers) && !QuestionForm.hasAnswer(answers)) }
+    private var showsSubmit: Bool { QuestionForm.showsSubmit(fields, answers) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

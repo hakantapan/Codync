@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import type { QuestionField } from '../../../shared/models.ts'
-import { hasAnswer, pick, questionOutcome, sendsOnTap, startsOpen } from './question-form.ts'
+import type { QuestionField } from '../../../shared/question.ts'
+import { hasAnswer, pick, questionOutcome, sendsOnTap, showsSubmit, startsOpen } from './question-form.ts'
 
 const db: QuestionField = { key: 'question_0', kind: 'single', title: 'Database', options: [{ value: 'PostgreSQL', label: 'PostgreSQL' }, { value: 'SQLite', label: 'SQLite' }] }
 const other: QuestionField = { key: 'question_0_custom', kind: 'text', title: 'Other', options: [] }
@@ -35,6 +35,13 @@ test('Submit needs a pick or typed text', () => {
   assert.equal(hasAnswer({}), false)
   assert.equal(hasAnswer({ question_1: [], question_0_custom: [' '] }), false)
   assert.equal(hasAnswer({ question_1: ['Cache'] }), true)
+})
+
+test('Submit shows except on a one-tap card with nothing typed', () => {
+  assert.equal(showsSubmit([db, other], {}), false)
+  assert.equal(showsSubmit([db, other], { question_0_custom: ['MySQL'] }), true)
+  assert.equal(showsSubmit([db, other, extras], {}), true)
+  assert.equal(showsSubmit([other], {}), true)
 })
 
 test('the answered card shows each answer', () => {

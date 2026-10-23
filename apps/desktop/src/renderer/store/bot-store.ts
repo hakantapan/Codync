@@ -8,11 +8,11 @@ import {
   type Entry,
   type GroupDraft,
   type Hello,
-  type QuestionAnswers,
   type ReplyQuote,
   type ScreenState,
   type Usage,
 } from '@shared/models'
+import type { QuestionAnswers } from '@shared/question'
 import type { HostClient } from '../client/host-client'
 import { FileDownloads } from './file-downloads'
 import { BotSync, sleep } from './bot-sync'

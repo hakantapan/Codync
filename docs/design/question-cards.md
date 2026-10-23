@@ -74,8 +74,8 @@ New `QuestionCard` on each, beside `PermissionCard`, using the same layout, `ans
 
 Files:
 
-- Desktop: `apps/desktop/src/renderer/views/thread/QuestionCard.tsx`; a `"question"` case in `ChatRows.tsx`; `respondQuestion` in `store/bot-store.ts` and the host client; `QuestionField` and the entry data fields in `src/shared/models.ts`.
-- iPhone: `apps/ios/Kit/Sources/CodyncUI/Thread/QuestionCard.swift`; a `"question"` case in `Thread/ChatRows.swift`; `respondQuestion` in `Store/BotStore+Actions.swift` and `CodyncKit/Client/HostClient.swift`; `fields` and `answer` on `EntryData`.
+- Desktop: `apps/desktop/src/renderer/views/thread/QuestionCard.tsx`; a `"question"` case in `ChatRows.tsx`; `respondQuestion` in `store/bot-store.ts` and the host client; the one-tap and Submit rules (`sendsOnTap`, `showsSubmit`) in `question-form.ts` beside it; `QuestionField` and the other question types in `src/shared/question.ts`, the entry data fields in `src/shared/models.ts`.
+- iPhone: `apps/ios/Kit/Sources/CodyncUI/Thread/QuestionCard.swift`; a `"question"` case in `Thread/ChatRows.swift`; `respondQuestion` in `Store/BotStore+Actions.swift` and `CodyncKit/Client/HostClient.swift`; `QuestionField` and `QuestionForm` (the same rules) in `CodyncKit/Models/Question.swift`; `fields` and `answer` on `EntryData`.
 
 Clients that don't know `"question"` skip the entry (kinds are plain strings everywhere) and the user answers with a message. They still show the bot's activity line and the push body, which name the question and its choices (`question_form::summary`): `Has a question: Which database should we use? SQLite / PostgreSQL / MySQL (+1 more)`. A single question's text is the form's `message`; with several, `message` is only "Please answer the following questions.", so the first question's own text (its `description`, else its `title`) stands in. The options are the first choice field's, three at most, and the line stops at 200 characters. The entry's `title` stays the form's `message`.
 

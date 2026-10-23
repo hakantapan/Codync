@@ -64,6 +64,11 @@ public enum QuestionForm {
         answers.values.contains { $0.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty } }
     }
 
+    /// Whether the card shows Submit: always, except on a one-tap card with nothing typed.
+    public static func showsSubmit(_ fields: [QuestionField], _ answers: QuestionAnswers) -> Bool {
+        !sendsOnTap(fields, answers) || hasAnswer(answers)
+    }
+
     /// The answered card's line: what was picked or typed, or how it ended.
     public static func outcome(status: String?, answer: [String]?) -> String {
         switch status {

@@ -225,7 +225,7 @@ export function SlideStack({ base, top }: { base: ReactNode; top: ReactNode | nu
 }
 
 /** Plain text entry for card rows: one line, a secret, or a growing multi-line box. */
-export function Field({ value, onChange, placeholder, secret = false, lines, mono = false, label, autoFocus, disabled }: {
+export function Field({ value, onChange, placeholder, secret = false, lines, mono = false, label, autoFocus, disabled, spellCheck = false }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
@@ -236,6 +236,8 @@ export function Field({ value, onChange, placeholder, secret = false, lines, mon
   label?: string
   autoFocus?: boolean
   disabled?: boolean
+  /** Off by default: most fields take names, keys and paths. */
+  spellCheck?: boolean
 }) {
   const className = `market-field${mono ? ' mono' : ''}`
   if (lines) {
@@ -245,7 +247,7 @@ export function Field({ value, onChange, placeholder, secret = false, lines, mon
         aria-label={label ?? placeholder}
         value={value}
         placeholder={placeholder}
-        spellCheck={false}
+        spellCheck={spellCheck}
         autoFocus={autoFocus}
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
@@ -260,7 +262,7 @@ export function Field({ value, onChange, placeholder, secret = false, lines, mon
       type={secret ? 'password' : 'text'}
       value={value}
       placeholder={placeholder}
-      spellCheck={false}
+      spellCheck={spellCheck}
       autoComplete="off"
       autoFocus={autoFocus}
       disabled={disabled}
