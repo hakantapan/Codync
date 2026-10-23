@@ -43,6 +43,9 @@ internal fun rosterLines(roster: List<Bot>, folded: Set<String>): List<RosterLin
 /** The sections [bots] are in, sorted the way the phone's language sorts ("İş" where Turkish puts it). */
 internal fun sectionNames(bots: List<Bot>): List<String> = bots.mapNotNull(Bot::section).distinct().sortedWith(Collator.getInstance())
 
+/** The sections a row's "Move to section" offers: hidden bots' too, though the roster leaves those out (iOS `BotStore.sections`). */
+internal fun menuSections(bots: List<Bot>): List<String> = sectionNames(bots.filterNot(Bot::deleted))
+
 /** The first host version that keeps sections (`section` on bots, `renameSection`). */
 private const val SECTIONS_HOST = "2.24.0"
 

@@ -346,8 +346,10 @@ export class BotSync extends BotMirror {
     }
   }
 
-  protected perform(op: (c: HostClient) => Promise<unknown>, replay = false) {
+  /** Fire and forget: what waiting and retrying couldn't settle reaches the dialog, after `undo` takes back what the action already showed. */
+  protected perform(op: (c: HostClient) => Promise<unknown>, replay = false, undo?: () => void) {
     void this.withLink(op, replay).catch((error: unknown) => {
+      undo?.()
       this.lastError = error instanceof Error ? error.message : String(error)
       this.changed()
     })

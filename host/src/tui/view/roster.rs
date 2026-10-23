@@ -67,38 +67,15 @@ pub(super) fn roster(buf: &mut Buffer, r: Rect, app: &mut App, narrow: bool) {
         if ry < offset || yy + extent(line).1 > bottom {
             continue;
         }
-        let selected = cursor == Some(i);
-        let b = match line {
+        let cursor_bar = (cursor == Some(i)).then_some(bar);
+        match line {
             RosterLine::Label(l) => {
                 put(buf, x0 + 1, yy, wd, l, t.dim.add_modifier(Modifier::BOLD));
-                continue;
             }
             RosterLine::Section { name, bots: count, unread, folded, .. } => {
-                section_row(buf, Rect::new(x0, yy, wd, 1), selected.then_some(bar), name, *count, *unread, *folded);
-                continue;
+                section_row(buf, Rect::new(x0, yy, wd, 1), cursor_bar, name, *count, *unread, *folded);
             }
-            RosterLine::Bot(b) => *b,
-        };
-        let row = Rect::new(x0, yy, wd, 2);
-        app.hits.clicks.push((row, Click::Bot(b.id.clone())));
-        if selected {
-            restyle(buf, row, t.sel);
-            put(buf, x0, yy, 1, "▌", bar);
-            put(buf, x0, yy + 1, 1, "▌", bar);
-        }
-        put_line(buf, x0 + 2, yy, 2, &avatar(app, b));
-        let (g, gs) = glyph(app, b.mark());
-        let time = if b.status == Status::Working { elapsed(b.started_at) } else { when(b.last_at) };
-        let tx = rput(buf, r.right() - 1, yy, &time, if b.unread > 0 { t.bold } else { t.dim });
-        let gx = tx.saturating_sub(2);
-        put(buf, gx, yy, 1, g, gs);
-        put(buf, x0 + 5, yy, gx.saturating_sub(x0 + 6), &b.name, t.bold);
-        let (pv, ps) = preview(b);
-        let badge = if b.unread > 0 { format!(" {} ", b.unread) } else { String::new() };
-        let room = usize::from(wd.saturating_sub(7)).saturating_sub(w(&badge) + usize::from(!badge.is_empty()));
-        put(buf, x0 + 5, yy + 1, u(room), &truncate(&pv, room), ps);
-        if !badge.is_empty() {
-            rput(buf, r.right() - 1, yy + 1, &badge, t.btn_primary);
+            RosterLine::Bot(b) => bot_row(buf, Rect::new(x0, yy, wd, 2), app, b, cursor_bar),
         }
     }
     if !narrow {
@@ -132,6 +109,30 @@ fn section_row(buf: &mut Buffer, row: Rect, bar: Option<Style>, name: &str, bots
     put(buf, row.x + 1, row.y, u(room), &label, t.dim.add_modifier(Modifier::BOLD));
     if !badge.is_empty() {
         rput(buf, row.right() - 1, row.y, &badge, t.btn_primary);
+    }
+}
+
+/// A bot's two rows: avatar, name, status glyph and time, then its preview and unread badge.
+fn bot_row(buf: &mut Buffer, row: Rect, app: &mut App, b: &Bot, bar: Option<Style>) {
+    let t = theme();
+    let (x0, y) = (row.x, row.y);
+    app.hits.clicks.push((row, Click::Bot(b.id.clone())));
+    if let Some(bar) = bar {
+        mark_cursor(buf, row, bar);
+    }
+    put_line(buf, x0 + 2, y, 2, &avatar(app, b));
+    let (g, gs) = glyph(app, b.mark());
+    let time = if b.status == Status::Working { elapsed(b.started_at) } else { when(b.last_at) };
+    let tx = rput(buf, row.right() - 1, y, &time, if b.unread > 0 { t.bold } else { t.dim });
+    let gx = tx.saturating_sub(2);
+    put(buf, gx, y, 1, g, gs);
+    put(buf, x0 + 5, y, gx.saturating_sub(x0 + 6), &b.name, t.bold);
+    let (pv, ps) = preview(b);
+    let badge = if b.unread > 0 { format!(" {} ", b.unread) } else { String::new() };
+    let room = usize::from(row.width.saturating_sub(7)).saturating_sub(w(&badge) + usize::from(!badge.is_empty()));
+    put(buf, x0 + 5, y + 1, u(room), &truncate(&pv, room), ps);
+    if !badge.is_empty() {
+        rput(buf, row.right() - 1, y + 1, &badge, t.btn_primary);
     }
 }
 
@@ -206,10 +207,12 @@ fn compact_section(buf: &mut Buffer, row: Rect, bots: usize, unread: Option<(&st
     }
 }
 
-/// The cursor's row: a selection tint and a bar in its first cell.
+/// The cursor's rows: a selection tint and a bar in the first cell of each.
 fn mark_cursor(buf: &mut Buffer, row: Rect, bar: Style) {
     restyle(buf, row, theme().sel);
-    put(buf, row.x, row.y, 1, "▌", bar);
+    for y in row.top()..row.bottom() {
+        put(buf, row.x, y, 1, "▌", bar);
+    }
 }
 
 #[cfg(test)]

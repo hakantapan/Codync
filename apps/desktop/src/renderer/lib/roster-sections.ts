@@ -42,3 +42,17 @@ export function sectionNames(bots: Iterable<{ section?: string }>): string[] {
   for (const bot of bots) if (bot.section) names.add(bot.section)
   return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
 }
+
+/** `renameSection`'s payload: `to` trimmed, and null (sent, not left out) to remove the section. */
+export function sectionRename(from: string, to: string | null): { from: string; to: string | null } {
+  return { from, to: to?.trim() || null }
+}
+
+/** The most characters a section name may have, counted as the host counts them (code points). */
+const SECTION_NAME_LIMIT = 40
+
+/** What a name field holds: at most `SECTION_NAME_LIMIT` characters, never cut inside an emoji. */
+export function limitSectionName(typed: string): string {
+  const chars = [...typed]
+  return chars.length > SECTION_NAME_LIMIT ? chars.slice(0, SECTION_NAME_LIMIT).join('') : typed
+}

@@ -2,7 +2,9 @@
 //! sorted by name, then bots in none), and moving through it.
 
 use std::cmp::Reverse;
-use std::collections::{BTreeSet, HashSet};
+use std::collections::HashSet;
+
+use icu_normalizer::DecomposingNormalizerBorrowed;
 
 use super::super::manage::{Submit, section_fields};
 use super::{App, Bot, Overlay};
@@ -31,6 +33,25 @@ impl Bot {
     pub fn shown_section(&self) -> Option<&str> {
         if self.pinned { None } else { self.section.as_deref() }
     }
+
+    /// The bots it shows among and reorders with: every pinned bot, or the rest of its section (or of none).
+    pub fn roster_group(&self) -> (bool, Option<&str>) {
+        (self.pinned, self.shown_section())
+    }
+}
+
+/// How sections sort: by name with case and accents set aside ("Çalışma" beside "Cherry", "home"
+/// before "Work"), the exact name breaking ties.
+// ponytail: accents folded, no locale rules (Swedish "å" sorts as "a", Turkish "ı" by code point,
+// unlike the apps' system collators); icu_collator if the terminal must match them exactly.
+fn section_key(name: &str) -> (String, &str) {
+    let base = DecomposingNormalizerBorrowed::new_nfd()
+        .normalize(name)
+        .chars()
+        .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
+        .flat_map(char::to_lowercase)
+        .collect();
+    (base, name)
 }
 
 /// `roster` (in `App::roster` order) as lines; a folded section is its label alone. Without pinned
@@ -40,7 +61,7 @@ pub fn roster_lines<'a>(roster: &[&'a Bot], folded: &HashSet<String>) -> Vec<Ros
     let mut lines = vec![];
     let mut group = None;
     for &b in roster {
-        let here = (b.pinned, b.shown_section());
+        let here = b.roster_group();
         if labeled && group != Some(here) {
             lines.push(match here {
                 (true, _) => RosterLine::Label("PINNED"),
@@ -108,13 +129,19 @@ impl App {
     /// user put them, then most recent (same as the phone).
     pub fn roster(&self) -> Vec<&Bot> {
         let mut v: Vec<&Bot> = self.bots.values().filter(|b| !b.hidden).collect();
-        // ponytail: `to_lowercase` order, not locale collation ("İş" may land off for Turkish); a
-        // collation crate (icu_collator) once someone notices.
-        v.sort_by_cached_key(|b| {
-            let section = b.shown_section().map(|s| (s.to_lowercase(), s.to_owned()));
+        v.sort_by_cached_key(|&b| {
+            let section = b.shown_section().map(section_key);
             (!b.pinned, section.is_none(), section, b.position, Reverse(b.last_at), b.name.clone())
         });
         v
+    }
+
+    /// Every section on this computer once (hidden and pinned bots' too), in the roster's order.
+    fn section_names(&self) -> Vec<&str> {
+        let mut names: Vec<&str> = self.bots.values().filter_map(|b| b.section.as_deref()).collect();
+        names.sort_by_cached_key(|&name| section_key(name));
+        names.dedup();
+        names
     }
 
     /// j/k in the roster: the next shown bot, a folded section counting as one.
@@ -147,11 +174,10 @@ impl App {
             return;
         }
         let Some(bot) = self.bot() else { return };
-        let names: BTreeSet<&str> = self.bots.values().filter_map(|o| o.section.as_deref()).collect();
+        let names = self.section_names();
         let mut note = "Empty takes it out of its section; a new name makes one.".to_owned();
         if !names.is_empty() {
-            let list: Vec<&str> = names.into_iter().collect();
-            note = format!("{note} Sections: {}", list.join(", "));
+            note = format!("{note} Sections: {}", names.join(", "));
         }
         let fields = section_fields("Move to section", note, bot.section.as_deref(), Submit::Section(bot.id.clone()));
         self.overlays.push(Overlay::Fields(Box::new(fields)));
@@ -227,6 +253,19 @@ mod tests {
         assert_eq!(shown(&app), ["PINNED", "p", "▾ home (1)", "h", "▾ Work (2)", "w1", "w2", "BOTS", "x"]);
         app.folded.insert("Work".into());
         assert_eq!(shown(&app), ["PINNED", "p", "▾ home (1)", "h", "▸ Work (2) 3", "BOTS", "x"]);
+    }
+
+    #[tokio::test]
+    async fn sections_sort_with_case_and_accents_set_aside_in_the_roster_and_the_prompt() {
+        let mut app = test_app();
+        for (id, section) in [("d", "Dersler"), ("c", "Çalışma"), ("e", "Éclair"), ("f", "fig"), ("h", "home")] {
+            add(&mut app, id, false, Some(section), 0, 0);
+        }
+        let order = ["Çalışma", "Dersler", "Éclair", "fig", "home"];
+        let headers: Vec<String> =
+            shown(&app).into_iter().filter_map(|l| l.strip_prefix("▾ ").map(str::to_owned)).collect();
+        assert_eq!(headers, order.map(|s| format!("{s} (1)")));
+        assert_eq!(app.section_names(), order);
     }
 
     #[tokio::test]

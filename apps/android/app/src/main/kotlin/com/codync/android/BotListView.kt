@@ -63,7 +63,7 @@ import kotlinx.serialization.json.putJsonArray
     val context = LocalContext.current
     var folded by remember { mutableStateOf(FoldedSections.load(context)) }
     val roster = roster(state.bots)
-    val sections = sectionNames(roster)
+    val sections = menuSections(state.bots)
     val reorder = remember { RosterReorder() }
     reorder.roster = roster
     val online = state.actualConnection is LinkState.Ready

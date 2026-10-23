@@ -414,7 +414,8 @@ function ChatSplitView() {
           <DesktopActionMenu
             items={context.items}
             onDismiss={() => setContext(null)}
-            style={{ left: Math.min(Math.max(8, context.x), windowSize.width - 268), top: Math.min(Math.max(8, context.y), Math.max(8, windowSize.height - 344)) }}
+            x={context.x}
+            y={context.y}
           />
         </div>
       ) : null}

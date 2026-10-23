@@ -7,8 +7,8 @@ name without being merged. Resetting the host's data/keys makes a new identity:
 its old offline entry may need removing. Signing in with Apple and Google shares
 this state only when both reach the same Codync account.
 
-Desktop and iOS show one section per selected computer, or a flat list when only
-one is selected. Drag a section heading to reorder it. Desktop also supports
+Desktop and iOS show one section per selected computer, or no computer headings when
+only one is selected. Drag a section heading to reorder it. Desktop also supports
 Alt+Up/Down on the heading; iOS exposes Move up/down accessibility actions.
 Filtering, folding and ordering are device-local preferences. The iPhone and each
 desktop installation keep their own order, even when signed in to the same account.
@@ -50,8 +50,9 @@ A bot or group chat can be in one section, a name the user picks (`section`, set
 `renameSection` renames, merges into another section's name, or removes one; `host/src/hub/sections.rs`).
 The host trims the name, treats an empty one as none, and refuses one over 40 characters or with a
 control character. The roster shows pinned rows first, then each section under its header sorted by
-name, then rows in no section; inside a section rows keep the order above. A section exists while a
-bot is in it. A pinned bot keeps its section and shows in it again once unpinned; hidden bots keep
+name (the way the device's language sorts; the terminal UI sets case and accents aside but has no
+per-language rules, so Swedish "å" sorts as "a" there), then rows in no section; inside a section
+rows keep the order above. A section exists while a bot is in it. A pinned bot keeps its section and shows in it again once unpinned; hidden bots keep
 theirs. Each device folds sections for itself.
 
 - **iPhone:** touch and hold a row, then drag it. The roster is a `List` with its styling

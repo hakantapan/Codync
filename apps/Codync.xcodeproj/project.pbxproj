@@ -53,6 +53,7 @@
 		974A5D8D89758A61E7D8D1B6 /* Input.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BA06CEE98A7CDED62678522 /* Input.swift */; };
 		980C29719BDE2E874C9AD53A /* CodyncBot-wedge-Tint.ttf in Resources */ = {isa = PBXBuildFile; fileRef = C3BB9F034194450254CE14EC /* CodyncBot-wedge-Tint.ttf */; };
 		9BBB2FAEDBD35A83EAB02981 /* AccountSwitcherView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EB282B31FBC94EE70D07638 /* AccountSwitcherView.swift */; };
+		9C5F3D805E170CDF68EA4A19 /* SectionNameDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09B4BF594A570A303880D6E4 /* SectionNameDialog.swift */; };
 		9E1D40B1216F6D46A615277E /* ComputerSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FB8080D4CB79347C36A7E75 /* ComputerSection.swift */; };
 		A1B7C7774E7FAF6D45D1BEF8 /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FA78A055791BBBA79DF8C8B /* Permissions.swift */; };
 		AA601649E43A5AF73DCF5B5E /* WebRTC in Frameworks */ = {isa = PBXBuildFile; productRef = 2D9748E611692583AFC5A152 /* WebRTC */; };
@@ -111,6 +112,7 @@
 		0582B6169BFC36E4BCD51C0D /* BotListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BotListView.swift; sourceTree = "<group>"; };
 		0814BD0C30F01A163FBDF896 /* AppearanceSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettings.swift; sourceTree = "<group>"; };
 		0829A4FCADAC108E8C2DB2F1 /* Widgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Widgets.entitlements; sourceTree = "<group>"; };
+		09B4BF594A570A303880D6E4 /* SectionNameDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SectionNameDialog.swift; sourceTree = "<group>"; };
 		0A87B0091DAF0E4807D62017 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		0C44BCF971511A5E94D073D5 /* CodyncOrb-Dot.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CodyncOrb-Dot.ttf"; sourceTree = "<group>"; };
 		120FD9DBA315A6DD543463D8 /* CodyncBot-tablet-Ink.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "CodyncBot-tablet-Ink.ttf"; sourceTree = "<group>"; };
@@ -300,6 +302,7 @@
 				ECD0B4EA4BBA2BB2826C4362 /* PairingView.swift */,
 				B6E13F8EA6C7B0DA4D899FEE /* RootView.swift */,
 				36C62636FD789C49762696A3 /* RosterSectionHeader.swift */,
+				09B4BF594A570A303880D6E4 /* SectionNameDialog.swift */,
 				0A87B0091DAF0E4807D62017 /* SettingsView.swift */,
 				9AD0BD16672E128A4F26272B /* SignInButtons.swift */,
 				CFEBE2E6A9D0AF0A0D89FFE7 /* UsageView.swift */,
@@ -683,6 +686,7 @@
 				89CA3972915769DBA315876F /* Push.swift in Sources */,
 				0631979397E0D6822747E03A /* RootView.swift in Sources */,
 				864E7C2DC7600E9DA58E2BD6 /* RosterSectionHeader.swift in Sources */,
+				9C5F3D805E170CDF68EA4A19 /* SectionNameDialog.swift in Sources */,
 				BF77DD7946621D8818EDAB9B /* SettingsView.swift in Sources */,
 				76E77CC8A2B7C74213512FAB /* SignInButtons.swift in Sources */,
 				684F7F77EECBA0BD95BDD658 /* UsageView.swift in Sources */,

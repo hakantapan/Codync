@@ -1,6 +1,6 @@
 import type { Bot } from '@shared/models'
 import type { MenuItem } from '../components/Overlay'
-import { sectionNames } from '../lib/roster-sections'
+import { sectionNames } from '../lib/roster-sections.ts'
 import type { BotStore } from '../store/bot-store'
 import type { ActionItem } from './PanelMenus'
 

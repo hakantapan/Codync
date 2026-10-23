@@ -25,10 +25,14 @@ public struct RosterSection: Sendable {
         return name.isEmpty ? nil : name
     }
 
-    /// What a name box may hold: at most 40 Unicode scalars, as the host counts them; a name
-    /// within that (one the host accepted) is never cut.
+    /// The most Unicode scalars a section name may have, as the host counts them.
+    static let maxNameLength = 40
+
+    /// What a name box may hold: at most `maxNameLength` scalars; a name within that (one the host
+    /// accepted) is never cut.
     public static func limited(_ typed: String) -> String {
-        typed.unicodeScalars.count > 40 ? String(String.UnicodeScalarView(typed.unicodeScalars.prefix(40))) : typed
+        typed.unicodeScalars.count > maxNameLength
+            ? String(String.UnicodeScalarView(typed.unicodeScalars.prefix(maxNameLength))) : typed
     }
 
     /// A computer's roster (in `BotStore.roster` order) as the rows on screen: pinned bots, then

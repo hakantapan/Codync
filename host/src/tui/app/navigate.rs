@@ -244,18 +244,18 @@ impl App {
     /// among all pinned bots (they show no sections), the rest only inside their section. Shown at
     /// once; the host's bot events confirm it.
     pub(super) fn reorder_bot(&mut self, d: isize) {
-        let roster: Vec<(String, bool, Option<String>)> =
-            self.roster().iter().map(|b| (b.id.clone(), b.pinned, b.shown_section().map(str::to_owned))).collect();
-        let Some(i) = self.selected.as_ref().and_then(|s| roster.iter().position(|(id, ..)| id == s)) else { return };
+        let roster = self.roster();
+        let Some(i) = self.selected.as_ref().and_then(|s| roster.iter().position(|b| &b.id == s)) else { return };
+        let group = roster[i].roster_group();
         // A folded section shows no order to change.
-        if roster[i].2.as_ref().is_some_and(|s| self.folded.contains(s)) {
+        if group.1.is_some_and(|s| self.folded.contains(s)) {
             return;
         }
-        let same = |j: usize| roster[j].1 == roster[i].1 && roster[j].2 == roster[i].2;
-        let Some(j) = i.checked_add_signed(d).filter(|&j| j < roster.len() && same(j)) else {
+        let Some(j) = i.checked_add_signed(d).filter(|&j| roster.get(j).is_some_and(|b| b.roster_group() == group))
+        else {
             return;
         };
-        let mut ids: Vec<String> = roster.into_iter().map(|(id, ..)| id).collect();
+        let mut ids: Vec<String> = roster.iter().map(|b| b.id.clone()).collect();
         ids.swap(i, j);
         for (position, id) in (0_i64..).zip(&ids) {
             if let Some(b) = self.bots.get_mut(id) {

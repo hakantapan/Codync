@@ -14,9 +14,8 @@ struct BotListView: View {
     @State private var editing: EditTarget?
     @State private var editingGroup: GroupTarget?
     @State private var confirmDelete: RosterItem?
-    /// The section name dialog's target, and the name being typed.
+    /// What the section name dialog names while it's open.
     @State private var naming: SectionNaming?
-    @State private var sectionName = ""
     /// The row that's lifted (a `RosterLine` id): a bot to drag or for its menu, or a computer's heading.
     @State private var lifted: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -209,23 +208,7 @@ struct BotListView: View {
                 if let item { accounts.store(for: item.ref.computerId)?.delete(item.bot) }
             }]
         }
-        .codyncDialog(naming?.title ?? "", isPresented: Binding(get: { naming != nil }, set: { if !$0 { naming = nil } }),
-                      field: DialogField("Section name", text: $sectionName)) {
-            // Read as the dialog shows: closing clears `naming`.
-            let target = naming
-            return [DialogAction("Save") {
-                guard let target, let name = RosterSection.name(typed: sectionName) else { return }
-                switch target {
-                case let .new(bot, store): store.setSection(bot, to: name)
-                case let .rename(old, store): store.renameSection(from: old, to: name)
-                }
-            }]
-        }
-        // Typing stops where the computer's limit is.
-        .onChange(of: sectionName) {
-            let limited = RosterSection.limited(sectionName)
-            if limited != sectionName { sectionName = limited }
-        }
+        .sectionNameDialog($naming)
     }
 
     /// A row the system's reordering dropped. A heading moves its computer and its bots (an order
@@ -280,7 +263,7 @@ struct BotListView: View {
         if store.supportsSections {
             header.contextActions {
                 [
-                    MenuItem("Rename section…", icon: "pencil") { askSectionName(.rename(section.name, store)) },
+                    MenuItem("Rename section…", icon: "pencil") { naming = .rename(section.name, store) },
                     MenuItem("Remove section", icon: "xmark.circle") { store.renameSection(from: section.name, to: nil) },
                 ]
             }
@@ -331,17 +314,11 @@ struct BotListView: View {
         var rows = store.sections.filter { $0 != bot.section }.map { name in
             MenuItem(name, icon: "tray") { store.setSection(bot, to: name) }
         }
-        rows.append(MenuItem("New section…", icon: "plus", divider: !rows.isEmpty) { askSectionName(.new(bot, store)) })
+        rows.append(MenuItem("New section…", icon: "plus", divider: !rows.isEmpty) { naming = .new(bot, store) })
         if bot.section != nil {
             rows.append(MenuItem("Remove from section", icon: "minus.circle") { store.setSection(bot, to: nil) })
         }
         return MenuItem("Move to section", icon: "tray", submenu: rows)
-    }
-
-    /// Opens the section name dialog: empty for a new section, the current name for a rename.
-    private func askSectionName(_ target: SectionNaming) {
-        sectionName = if case let .rename(old, _) = target { old } else { "" }
-        naming = target
     }
 
     /// The system asks for a row's item as it lifts; the row shows as lifted until it lets go.
@@ -425,19 +402,6 @@ private struct EditTarget: Identifiable {
     let id = UUID()
     let computerId: ComputerID
     let draft: BotDraft
-}
-
-/// What the section name dialog names: a bot's new section, or a computer's section to rename.
-private enum SectionNaming {
-    case new(Bot, BotStore)
-    case rename(String, BotStore)
-
-    var title: String {
-        switch self {
-        case .new: "New section"
-        case .rename: "Rename section"
-        }
-    }
 }
 
 private struct EmptyRoster: View {

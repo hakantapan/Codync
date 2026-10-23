@@ -40,6 +40,11 @@ class RosterSectionsTest {
         assertEquals(sorted, rosterLines(bots, emptySet()).filterIsInstance<RosterLine.Header>().map { it.name })
     }
 
+    @Test fun moveToSectionOffersAHiddenBotsSectionButNotADeletedOnes() {
+        val bots = listOf(work1, Bot("archived", section = "Archive", hidden = true), Bot("gone", section = "Old", deleted = true))
+        assertEquals(listOf("Archive", "Work"), menuSections(bots))
+    }
+
     @Test fun withoutSectionsTheRosterShowsAsItIs() {
         val plain = listOf(Bot("pin", pinned = true), Bot("a"), Bot("b"))
         assertEquals(plain.map { RosterLine.Row(it) }, rosterLines(plain, emptySet()))

@@ -37,7 +37,8 @@ export function useComputerRoster(app: AppModel, shown: Set<string>) {
       const section = sections.find((s) => s.computer.id === ref.computerId)
       const items = section?.items ?? []
       const moved = items.find((item) => item.bot.id === ref.botId)
-      if (!section || !moved) return
+      // A folded section shows no order to change.
+      if (!section || !moved || (!moved.bot.pinned && moved.bot.section && folded.includes(moved.bot.section))) return
       const group = items.filter((item) => sameRosterGroup(item.bot, moved.bot))
       const target = group[group.indexOf(moved) + offset]
       if (target) section.store.reorder(moveInOrder(items.map((item) => item.bot.id), ref.botId, target.bot.id))
