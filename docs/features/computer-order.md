@@ -51,9 +51,12 @@ A bot or group chat can be in one section, a name the user picks (`section`, set
 The host trims the name, treats an empty one as none, and refuses one over 40 characters or with a
 control character. The roster shows pinned rows first, then each section under its header sorted by
 name (the way the device's language sorts; the terminal UI sets case and accents aside but has no
-per-language rules, so Swedish "å" sorts as "a" there), then rows in no section (under a "Bots" label when there are sections); inside a section
-rows keep the order above. A section exists while a bot is in it. A pinned bot keeps its section and shows in it again once unpinned; hidden bots keep
-theirs. Each device folds sections for itself.
+per-language rules, so Swedish "å" sorts as "a" there), then rows in no section (under a "Bots"
+label when there are sections); inside a section rows keep the order above. A section exists while
+a bot is in it. A pinned bot keeps its section and shows in it again once unpinned; hidden bots keep
+theirs. Each device folds sections for itself, by name: renaming or removing a folded section on
+this device takes its fold along (a merge folds the section it joins; an unfolded section changes
+nothing), while a rename made on another device arrives unfolded.
 
 - **iPhone:** touch and hold a row, then drag it. The roster is a `List` with its styling
   removed, so the system does the reordering: holding still opens the row's menu, and dragging
@@ -66,4 +69,5 @@ theirs. Each device folds sections for itself.
   with a context menu on the row, a drag never starts on iPhone.
 - **Desktop:** drag a row, or Alt+Up/Down on the selected bot (macOS, Linux, Windows).
 - **Terminal UI:** `J` / `K` move the selected bot down / up. `w` moves it to a section (empty takes
-  it out), `W` renames its section (empty removes it), `z` folds or unfolds it.
+  it out), `W` renames its section (empty removes it), `z` or a click on a section's label folds or
+  unfolds it (in the compact strip a click on a folded section unfolds it).
