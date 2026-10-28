@@ -149,7 +149,8 @@ function PanelRows({ items, onDismiss, after }: { items: PanelItem[]; onDismiss:
             ref={highlighted === i ? highlightedRow : undefined}
             className={`panel-row ${highlighted === i ? 'highlight' : ''} ${item.destructive ? 'destructive' : ''}`}
             disabled={item.disabled}
-            onMouseEnter={() => setHighlighted(i)}
+            // Movement, not enter: Chromium re-enters the row under a resting pointer after a scroll, which would undo ↑/↓.
+            onMouseMove={() => setHighlighted(i)}
             onClick={item.action}
           >
             <IconSlot width={20}>
