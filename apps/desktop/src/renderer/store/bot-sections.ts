@@ -24,22 +24,26 @@ export class BotSections {
     return this.moveBots([bot.id], section ?? undefined, (c) => c.call('updateBot', { id: bot.id, section }))
   }
 
-  /** Renames a section on this computer (onto another one's name merges them); null removes it, its bots stay. Resolves to whether the host did it. */
-  rename(from: string, to: string | null): Promise<boolean> {
+  /**
+   * Renames a section on this computer (onto another one's name merges them); null removes it, its bots
+   * stay. A refusal runs `onRefused` as its bots go back, in the same update. Resolves to whether the host did it.
+   */
+  rename(from: string, to: string | null, onRefused?: () => void): Promise<boolean> {
     const rename = sectionRename(from, to)
-    return this.moveBots(sectionMembers(this.bots().values(), from), rename.to ?? undefined, (c) => c.call('renameSection', rename))
+    return this.moveBots(sectionMembers(this.bots().values(), from), rename.to ?? undefined, (c) => c.call('renameSection', rename), onRefused)
   }
 
   /**
    * Shows bots `ids` in section `to` (none: undefined) before the host's bot events confirm it, then
    * sends `op`; a refusal takes back the moves nothing changed since. Resolves to whether the host accepted.
    */
-  private async moveBots(ids: string[], to: string | undefined, op: (c: HostClient) => Promise<unknown>): Promise<boolean> {
+  private async moveBots(ids: string[], to: string | undefined, op: (c: HostClient) => Promise<unknown>, onRefused?: () => void): Promise<boolean> {
     const moves = ids.map((id) => ({ id, from: this.bots().get(id)?.section, to }))
     this.pending.push(...moves)
     this.place(placedBots(this.bots(), ids, to))
     try {
       return await this.perform(op, () => {
+        onRefused?.()
         // A later move that started where a refused one put the bot now starts where the host still has it.
         for (const move of moves) for (const later of chainedMoves(this.pending, move)) later.from = move.from
         this.place(restoredBots(this.bots(), moves))

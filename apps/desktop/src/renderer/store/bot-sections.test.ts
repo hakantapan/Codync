@@ -76,6 +76,19 @@ test('a refused rename followed by a refused move of one of its bots puts both b
   assert.deepEqual(where(), { w1: 'Work', w2: 'Work', h: 'Home' })
 })
 
+test('a refused rename runs its callback while its bots are still moved, then puts them back; an accepted one never does', async () => {
+  const { sections, where, answer } = computer({ w: 'Work' })
+  const seen: Record<string, string | undefined>[] = []
+  const refused = sections.rename('Work', 'Jobs', () => seen.push(where()))
+  answer(0, false)
+  await refused
+  assert.deepEqual(where(), { w: 'Work' })
+  const accepted = sections.rename('Work', 'Jobs', () => seen.push(where()))
+  answer(1, true)
+  await accepted
+  assert.deepEqual(seen, [{ w: 'Jobs' }])
+})
+
 test('an accepted move stays, and later refusals no longer chain to it', async () => {
   const { sections, bot, where, answer } = computer({ a: 'Work' })
   const first = sections.move(bot('a'), 'Home')

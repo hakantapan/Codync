@@ -35,9 +35,9 @@ export function useComputerRoster(app: AppModel, shown: Set<string>) {
       const before = prefs.collapsedRosterSections.get()
       const after = foldsAfterRename(before, from, sectionRename(from, to).to)
       setFolded(after)
-      void store.sections.rename(from, to).then((accepted) => {
-        // Put the folds back unless they were toggled while the host answered.
-        if (!accepted && prefs.collapsedRosterSections.get() === after) setFolded(before)
+      // Refused: the folds go back with the bots (one render, no open-then-fold), unless they were toggled while the host answered.
+      void store.sections.rename(from, to, () => {
+        if (prefs.collapsedRosterSections.get() === after) setFolded(before)
       })
     },
     move(id: string, target: string) {
