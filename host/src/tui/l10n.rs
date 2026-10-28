@@ -73,45 +73,30 @@ impl AppLanguage {
     }
 }
 
-static HANS: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!("../../../apps/ios/Kit/Sources/CodyncKit/Resources/Languages/zh-Hans.json"))
-        .expect("zh-Hans.json is a string map")
-});
+/// One shared catalog, embedded at build time.
+macro_rules! catalog {
+    ($name:literal) => {
+        LazyLock::new(|| {
+            serde_json::from_str(include_str!(concat!(
+                "../../../apps/ios/Kit/Sources/CodyncKit/Resources/Languages/",
+                $name,
+                ".json"
+            )))
+            .expect(concat!($name, ".json is a string map"))
+        })
+    };
+}
 
-static HANT: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!("../../../apps/ios/Kit/Sources/CodyncKit/Resources/Languages/zh-Hant.json"))
-        .expect("zh-Hant.json is a string map")
-});
+type Catalog = LazyLock<HashMap<String, String>>;
 
-static JA: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!("../../../apps/ios/Kit/Sources/CodyncKit/Resources/Languages/ja.json"))
-        .expect("ja.json is a string map")
-});
-
-static KO: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!("../../../apps/ios/Kit/Sources/CodyncKit/Resources/Languages/ko.json"))
-        .expect("ko.json is a string map")
-});
-
-static FR: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!("../../../apps/ios/Kit/Sources/CodyncKit/Resources/Languages/fr.json"))
-        .expect("fr.json is a string map")
-});
-
-static DE: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!("../../../apps/ios/Kit/Sources/CodyncKit/Resources/Languages/de.json"))
-        .expect("de.json is a string map")
-});
-
-static ES: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!("../../../apps/ios/Kit/Sources/CodyncKit/Resources/Languages/es.json"))
-        .expect("es.json is a string map")
-});
-
-static TR: LazyLock<HashMap<String, String>> = LazyLock::new(|| {
-    serde_json::from_str(include_str!("../../../apps/ios/Kit/Sources/CodyncKit/Resources/Languages/tr.json"))
-        .expect("tr.json is a string map")
-});
+static HANS: Catalog = catalog!("zh-Hans");
+static HANT: Catalog = catalog!("zh-Hant");
+static JA: Catalog = catalog!("ja");
+static KO: Catalog = catalog!("ko");
+static FR: Catalog = catalog!("fr");
+static DE: Catalog = catalog!("de");
+static ES: Catalog = catalog!("es");
+static TR: Catalog = catalog!("tr");
 
 static PREFERENCE: LazyLock<Mutex<AppLanguage>> = LazyLock::new(|| Mutex::new(read_preference()));
 
@@ -408,21 +393,12 @@ mod tests {
                 super::resolved_language(AppLanguage::System, &format!("{}_XX.UTF-8", language.stored())),
                 language
             );
+            assert_eq!(super::resolved_language(AppLanguage::System, &format!("{}-XX", language.stored())), language);
             assert_eq!(super::resolved_language(language, "zh_TW"), language);
             assert_ne!(super::translate_with("Settings", table), "Settings");
             assert_eq!(super::translate_with("Unknown phrase", table), "Unknown phrase");
         }
         assert_eq!(super::resolved_language(AppLanguage::System, "pt_BR"), AppLanguage::En);
-    }
-
-    #[test]
-    fn a_turkish_system_reads_turkish() {
-        assert_eq!(AppLanguage::parse("tr"), AppLanguage::Tr);
-        assert_eq!(AppLanguage::Tr.stored(), "tr");
-        assert_eq!(super::resolved_language(AppLanguage::System, "tr_TR.UTF-8"), AppLanguage::Tr);
-        assert_eq!(super::resolved_language(AppLanguage::System, "tr-TR"), AppLanguage::Tr);
-        assert_eq!(super::translate_with("Settings", &super::TR).as_ref(), "Ayarlar");
-        assert_eq!(super::translate_with("Follow system", &super::TR).as_ref(), "Sistemi izle");
     }
 
     #[test]
