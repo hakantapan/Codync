@@ -196,6 +196,18 @@ impl App {
         }
     }
 
+    /// A click on section `name`'s label: folds or unfolds it. Opened, its first bot takes the cursor
+    /// (where j/k land), so the list doesn't scroll back to a bot elsewhere and leave it off screen.
+    pub(super) fn click_section(&mut self, name: &str) {
+        self.toggle_fold(name);
+        if self.folded.contains(name) {
+            return;
+        }
+        if let Some(id) = self.roster().iter().find(|b| b.shown_section() == Some(name)).map(|b| b.id.clone()) {
+            self.select(&id);
+        }
+    }
+
     /// `w`: "Move to section" for the selected bot: one of the sections, a new name, or empty for none.
     /// The lead stays on top, outside sections.
     pub(super) fn ask_section(&mut self) {
@@ -357,7 +369,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a_click_on_a_section_folds_or_unfolds_it_and_keeps_the_selection() {
+    async fn a_click_folds_a_section_or_opens_it_on_its_first_bot() {
         let mut app = test_app();
         for (id, section, last_at) in [("a", Some("Work"), 3), ("b", Some("Work"), 2), ("c", None, 1)] {
             add(&mut app, id, false, section, last_at, 0);
@@ -369,7 +381,7 @@ mod tests {
             row: 0,
             modifiers: KeyModifiers::NONE,
         };
-        for folded in [true, false] {
+        for (folded, selected) in [(true, "c"), (false, "a")] {
             // The label's click, as the full roster and the compact strip (folded: its one cell) register it.
             let section = roster_lines(&app.roster(), &app.folded).iter().find_map(|l| match l {
                 RosterLine::Section { .. } => l.click(),
@@ -379,7 +391,7 @@ mod tests {
             app.hits.clicks = section.into_iter().map(|c| (Rect::new(0, 0, 20, 1), c)).collect();
             app.on_mouse(click);
             assert_eq!(app.folded.contains("Work"), folded);
-            assert_eq!(app.selected.as_deref(), Some("c"), "the selection stays");
+            assert_eq!(app.selected.as_deref(), Some(selected), "folding keeps the selection, opening moves it in");
         }
     }
 

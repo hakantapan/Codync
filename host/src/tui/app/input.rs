@@ -422,7 +422,7 @@ impl App {
                     Some(Click::Steps) => self.toggle_steps(),
                     Some(Click::BotChat(entry)) => self.open_bot_chat(&entry),
                     Some(Click::Section(name)) => {
-                        self.toggle_fold(&name);
+                        self.click_section(&name);
                         self.focus = Focus::Roster;
                     }
                     None => {
