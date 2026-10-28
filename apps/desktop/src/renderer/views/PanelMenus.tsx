@@ -117,7 +117,10 @@ function PanelRows({ items, onDismiss, after }: { items: PanelItem[]; onDismiss:
   const [highlighted, setHighlighted] = useState(0)
   const highlightedRow = useRef<HTMLButtonElement>(null)
   // A long list scrolls: ↑/↓ and Tab bring the row Enter would run into view.
-  useEffect(() => highlightedRow.current?.scrollIntoView({ block: 'nearest' }), [highlighted])
+  // A block, not an arrow's value: Chromium's scrollIntoView returns a promise, which React would call as the clean-up.
+  useEffect(() => {
+    highlightedRow.current?.scrollIntoView({ block: 'nearest' })
+  }, [highlighted])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
