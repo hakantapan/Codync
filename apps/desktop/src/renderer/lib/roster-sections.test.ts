@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { foldsAfterRename, limitSectionName, placedBots, rosterLines, sameRosterGroup, sectionMembers, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
+import { foldsAfterRename, hostHasSections, limitSectionName, placedBots, rosterLines, sameRosterGroup, sectionMembers, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
 
 const item = (id: string, section?: string, { lead = false, pinned = false, unread = 0 } = {}) => ({ id, bot: { lead, pinned, section, unread } })
 type Item = ReturnType<typeof item>
@@ -121,4 +121,10 @@ test('a refused rename puts back exactly the bots it moved, not those already in
 
 test('a bot deleted before the refusal comes back stays deleted', () => {
   assert.deepEqual(placedBots(computerBots({ id: 'a', unread: 0 }), ['gone', 'a'], 'Work'), [['a', { id: 'a', section: 'Work', unread: 0 }]])
+})
+
+test('sections show only on hosts from 2.32.0, dev builds included', () => {
+  assert.equal(hostHasSections('2.31.2'), false)
+  assert.equal(hostHasSections('2.32.0'), true)
+  assert.equal(hostHasSections('2.32.1-dev'), true)
 })

@@ -1,4 +1,13 @@
+import { isBelow } from '../../shared/compat.ts'
 import { rosterBand } from './computer-roster.ts'
+
+/** The first host with roster sections. */
+const ROSTER_SECTIONS_HOST = '2.32.0'
+
+/** Whether a host of `version` keeps roster sections (an older one leaves them out). */
+export function hostHasSections(version: string): boolean {
+  return !isBelow(version, ROSTER_SECTIONS_HOST)
+}
 
 /** What placing a bot in the roster reads: lead, its pin, the section the user put it in, its unread count. */
 interface Placed {

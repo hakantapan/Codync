@@ -14,6 +14,7 @@ import type { HostClient, HostRoute, HostTransport } from '../client/host-client
 import { rosterOrder } from '../lib/computer-roster'
 import { HOST_UPDATE_WAIT, hostVersionLine, offerHostUpdate, type HostUpdate, type HostUpdateOffer, type HostVersionLine } from '../lib/host-update'
 import { Observable } from '../lib/observable'
+import { hostHasSections } from '../lib/roster-sections'
 import { ComposerDrafts } from '@shared/composer-drafts'
 import { canLoadHistory } from '@shared/mirror-window'
 
@@ -113,7 +114,7 @@ export class BotMirror extends Observable {
 
   /** The host keeps roster sections (an older one leaves them out): the menus offer them only then. */
   get hasRosterSections() {
-    return this.hostVersion !== null && !isBelow(this.hostVersion.version, ROSTER_SECTIONS_HOST)
+    return this.hostVersion !== null && hostHasSections(this.hostVersion.version)
   }
 
   /** What the update notice offers while this computer is behind this app. */
@@ -279,9 +280,6 @@ export class BotMirror extends Observable {
     } catch {}
   }
 }
-
-/** The first host with roster sections. */
-const ROSTER_SECTIONS_HOST = '2.24.0'
 
 export function builtInBackendName(id: string) {
   switch (id) {
