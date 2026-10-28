@@ -220,9 +220,10 @@ impl App {
         }
         let Some(bot) = self.bot() else { return };
         let names = self.section_names();
-        let mut note = "Empty takes it out of its section; a new name makes one.".to_owned();
+        // Translated before the names go in: the sheet's own translation can't match a filled-in note.
+        let mut note = tr("Empty takes it out of its section; a new name makes one.").into_owned();
         if !names.is_empty() {
-            note = format!("{note} Sections: {}", names.join(", "));
+            note.push_str(&tr(" Sections: {list}").replace("{list}", &names.join(", ")));
         }
         let fields = section_fields("Move to section", note, bot.section.as_deref(), Submit::Section(bot.id.clone()));
         self.overlays.push(Overlay::Fields(Box::new(fields)));
@@ -449,6 +450,7 @@ mod tests {
         app.ask_section();
         let Some(Overlay::Fields(f)) = app.overlays.last() else { panic!("the section prompt") };
         assert_eq!((f.title.as_str(), f.inputs[0].ed.text.as_str()), ("Move to section", "Work"));
+        assert_eq!(f.note, "Empty takes it out of its section; a new name makes one. Sections: Work");
         app.overlays.clear();
         app.ask_rename_section();
         let Some(Overlay::Fields(f)) = app.overlays.last() else { panic!("the rename prompt") };
