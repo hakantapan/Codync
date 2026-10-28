@@ -267,6 +267,10 @@ impl Hub {
             }
             crate::agent::fallback::tidy(&mut cfg);
             cfg.section = sections::normalize_section(cfg.section.as_deref())?;
+            // ponytail: validated under the lock, so a workspace folder on a hung network share (its
+            // `is_dir`) stalls every bot's events until it answers. Upgrade: build and validate outside the
+            // lock from a snapshot, then save under it only if the stored config is unchanged (compare the
+            // serialized configs, not rev), else retry.
             validate(&cfg)?;
             crate::agent::workspace::prepare(&mut cfg)?;
             crate::agent::own_memory::settle(&mut cfg, &row.config, patch);
@@ -312,16 +316,24 @@ impl Hub {
                 }
             }
         });
-        // A deleted bot leaves its groups; what it said there stays.
-        for row in self.store.bots()? {
-            let mut group = row.config;
-            if !row.deleted && group.is_group() && group.members.iter().any(|m| m == id) {
-                group.members.retain(|m| m != id);
-                {
-                    let _g = self.emit_lock.locked();
-                    self.store.save_bot(&group)?;
+        // A deleted bot leaves its groups; what it said there stays. Each group is read again under the
+        // lock, so an edit or a section rename since this scan isn't written back.
+        let groups: Vec<String> =
+            self.store.bots()?.into_iter().filter(|r| !r.deleted && r.config.is_group()).map(|r| r.config.id).collect();
+        for group in groups {
+            let left = {
+                let _g = self.emit_lock.locked();
+                match self.store.bot(&group)?.filter(|r| !r.deleted) {
+                    Some(mut row) if row.config.members.iter().any(|m| m == id) => {
+                        row.config.members.retain(|m| m != id);
+                        self.store.save_bot(&row.config)?;
+                        true
+                    }
+                    _ => false,
                 }
-                self.emit_bot(&group.id);
+            };
+            if left {
+                self.emit_bot(&group);
             }
         }
         Ok(())
