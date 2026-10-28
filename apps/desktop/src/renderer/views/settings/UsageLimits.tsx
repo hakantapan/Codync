@@ -2,7 +2,7 @@ import type { Usage } from '@shared/models'
 import { HStack, VStack } from '../../components/Stack'
 import { Text } from '../../components/Text'
 import { prefs, usePref } from '../../lib/prefs'
-import { useResetLine } from '../../lib/use-language'
+import { useResetLine, useTr } from '../../lib/use-language'
 import { ProviderMascot } from '../usage/ProviderMascot'
 import { UsageBar } from '../usage/UsageBar'
 import { providerTintCSS, resetDescription, windowReading, windowTitle } from '../usage/usage-model'
@@ -12,6 +12,7 @@ import './settings.css'
 export function UsageLimits({ usage }: { usage: Usage }) {
   const [style] = usePref(prefs.usageIconStyle)
   const resetLine = useResetLine()
+  const tr = useTr()
   return (
     <VStack gap={18}>
       {usage.providers.map((provider) => (
@@ -22,7 +23,7 @@ export function UsageLimits({ usage }: { usage: Usage }) {
           </HStack>
           {provider.windows.map((w) => (
             <HStack key={w.id} gap={10} className="settings-usage-row">
-              <Text tone="text" truncate className="settings-usage-title">{windowTitle(w)}</Text>
+              <Text tone="text" truncate className="settings-usage-title">{tr(windowTitle(w))}</Text>
               {w.text ? (
                 <Text tone="text" truncate className="settings-usage-note">{w.text}</Text>
               ) : (

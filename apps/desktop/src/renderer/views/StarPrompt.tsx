@@ -54,9 +54,9 @@ export function StarPrompt() {
   return (
     <Sheet open={open} onClose={() => finish(false)}>
       <VStack className="star-prompt">
-        <ModalHeader icon="star" title={text.title} />
+        <ModalHeader icon="star" title={tr(text.title)} />
         <VStack gap={16} className="star-prompt-body">
-          <Text as="div" size="body" tone="secondary" className="star-prompt-message">{text.message}</Text>
+          <Text as="div" size="body" tone="secondary" className="star-prompt-message">{tr(text.message)}</Text>
           <button className="star-prompt-repo" title={REPO} onClick={() => finish(true)}>
             <img src={appIcon} alt="" className="star-prompt-icon" draggable={false} />
             <VStack gap={2} grow>
@@ -73,7 +73,7 @@ export function StarPrompt() {
             </Button>
             <Button className="star-prompt-star" onClick={() => finish(true)}>
               <Icon name="star" size={12} weight="semibold" />
-              Star on GitHub
+              {tr('Star on GitHub')}
             </Button>
           </HStack>
         </VStack>
