@@ -62,19 +62,15 @@ import kotlinx.serialization.json.putJsonArray
     var naming by remember { mutableStateOf<SectionNaming?>(null) }
     val context = LocalContext.current
     var folded by remember { mutableStateOf(FoldedSections.load(context)) }
-    // A folded section renamed or removed here stays folded under both names until the computer answers (its bots move only
-    // then), then under the one it has; a refusal puts the folds back. The answer reads and writes the stored folds, as the
-    // list may have left the screen.
+    // A folded section renamed or removed here stays folded under its new name, at once, like its bots; a refusal puts the
+    // folds back, reading and writing the stored ones, as the list may have left the screen.
     val renameSection = { from: String, to: String? ->
         val before = folded
-        val renaming = foldsWhileRenaming(before, from, to)
-        folded = renaming
-        FoldedSections.save(context, renaming)
-        val answered = { change: (Set<String>) -> Set<String> ->
-            folded = change(FoldedSections.load(context)).also { FoldedSections.save(context, it) }
-        }
-        store.renameSection(from, to, onRefused = { answered { foldsAfterRefusal(it, renaming, before) } }) {
-            answered { foldsAfterRenamed(it, from, to) }
+        val renamed = foldsAfterRename(before, from, to)
+        folded = renamed
+        FoldedSections.save(context, renamed)
+        store.renameSection(from, to) {
+            folded = foldsAfterRefusal(FoldedSections.load(context), renamed, before).also { FoldedSections.save(context, it) }
         }
     }
     var confirmNewSession by remember { mutableStateOf<Bot?>(null) }

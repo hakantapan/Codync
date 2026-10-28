@@ -52,6 +52,10 @@ class AppStore(application: Application) : AndroidViewModel(application) {
     internal val transportRequired: Boolean get() = foreground || state.value.voice != null
     internal val sends = mutableSetOf<String>()
     internal val actions = mutableMapOf<String, Job>()
+    /** The bots as the mirror last had them; the state shows them with [pendingSectionMoves] laid over (`withMoves`). */
+    internal var mirrorBots: List<Bot> = emptyList()
+    /** Section moves shown but not answered yet, oldest first. */
+    internal val pendingSectionMoves = mutableListOf<SectionMove>()
     internal var pluginsRefreshAgain = false
     internal var widgetOwner: WidgetOwner? = null
     /** The host version an undecodable event already made the mirror fetch everything again for. */
@@ -182,7 +186,8 @@ class AppStore(application: Application) : AndroidViewModel(application) {
         withContext(Dispatchers.IO) { retired.forEach(attachments::discard) }
         // Like iOS, a screen state this app can't read is a host without remote screen.
         val screen = snapshot.screen?.let { runCatching { ScreenState.decode(it) }.getOrNull() }
-        mutableState.update { current -> current.copy(bots = snapshot.bots, entries = snapshot.entries,
+        mirrorBots = snapshot.bots
+        mutableState.update { current -> current.copy(bots = withMoves(snapshot.bots, pendingSectionMoves), entries = snapshot.entries,
             pending = snapshot.pending, usage = snapshot.usage, screen = screen, mirrorRevision = snapshot.rev,
             selectedBot = current.selectedBot?.takeIf { id -> snapshot.bots.any { it.id == id } }) }
         if (voiceBinding != null && snapshot.bots.none { it.id == voiceBinding?.botId && !it.deleted }) endVoice("Voice chat ended because its bot was removed.")

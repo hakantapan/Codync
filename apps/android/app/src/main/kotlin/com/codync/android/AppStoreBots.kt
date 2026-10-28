@@ -27,14 +27,33 @@ fun AppStore.command(method: String, body: JsonObject = JsonObject(emptyMap()), 
 }
 
 /** Moves a bot into the roster section [section], or out of any (null). */
-fun AppStore.setSection(botId: String, section: String?) = command("updateBot", sectionUpdate(botId, section), "roster:$botId")
+fun AppStore.setSection(botId: String, section: String?) = moveSections(listOf(botId), section, "updateBot", sectionUpdate(botId, section))
 
 /**
  * Moves every bot of the section [from] into [to] (merging into a section of that name), or out of any (null: removes the section);
- * [onRenamed] once the computer has, [onRefused] when it doesn't.
+ * [onRefused] when the computer doesn't take it.
  */
-fun AppStore.renameSection(from: String, to: String?, onRefused: () -> Unit, onRenamed: () -> Unit) =
-    command("renameSection", sectionRename(from, to), "section:$from", onRefused, onRenamed)
+fun AppStore.renameSection(from: String, to: String?, onRefused: () -> Unit) =
+    moveSections(state.value.bots.filter { it.section == from }.map(Bot::id), to, "renameSection", sectionRename(from, to), onRefused)
+
+/**
+ * Shows bots [ids] in [section] at once, then sends [method] (iOS `BotStore.show`): each move shows over the mirror until it's
+ * answered, so a refused one leaves the bot where the computer has it, or where a later move put it.
+ */
+private fun AppStore.moveSections(ids: List<String>, section: String?, method: String, body: JsonObject, onRefused: () -> Unit = {}) {
+    val moves = ids.map { SectionMove(it, section) }
+    pendingSectionMoves += moves
+    showSectionMoves()
+    // A key of its own: a later move of the same bot goes while this one is answered.
+    command(method, body, "section:" + java.util.UUID.randomUUID(), onFailure = {
+        pendingSectionMoves.removeAll(moves)
+        // The bots and the caller's folds go back in one update.
+        showSectionMoves()
+        onRefused()
+    }) { pendingSectionMoves.removeAll(moves) }
+}
+
+private fun AppStore.showSectionMoves() = mutableState.update { it.copy(bots = withMoves(mirrorBots, pendingSectionMoves)) }
 
 fun AppStore.saveBot(draft: BotDraft, onSaved: () -> Unit) = action("editor") {
     val active = ready()

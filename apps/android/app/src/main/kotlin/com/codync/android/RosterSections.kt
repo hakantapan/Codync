@@ -83,17 +83,24 @@ internal fun sectionName(input: String): String? =
     input.trim().takeIf { name -> name.any { !it.isWhitespace() && !it.isISOControl() } }
 
 /**
- * This device's folded sections while it renames section [from] to [to] (null removes it): a folded [from] stays folded
- * until its bots move, and [to] folds too, so a merge folds the section it joins; an unfolded one changes nothing.
+ * This device's folded sections after it renames section [from] to [to] (null removes it): a folded [from] stays folded
+ * as [to], so a merge folds the section it joins; an unfolded one changes nothing.
  */
-internal fun foldsWhileRenaming(folded: Set<String>, from: String, to: String?): Set<String> =
-    if (from in folded && to != null) folded + to else folded
-
-/** This device's folded sections once the computer renamed [from] to [to]: [from]'s name goes with its bots. */
-internal fun foldsAfterRenamed(folded: Set<String>, from: String, to: String?): Set<String> = if (from == to) folded else folded - from
+internal fun foldsAfterRename(folded: Set<String>, from: String, to: String?): Set<String> =
+    if (from in folded) folded - from + listOfNotNull(to) else folded
 
 /** This device's folded sections after the computer refused a rename that changed them from [before] to [set]: [before] again, unless they changed since. */
 internal fun foldsAfterRefusal(current: Set<String>, set: Set<String>, before: Set<String>): Set<String> = if (current == set) before else current
+
+/** A section change shown before the computer answered it (iOS `SectionMove`): bot [bot] into [to] (null: none). Told apart by identity. */
+internal class SectionMove(val bot: String, val to: String?)
+
+/** [bots] as they show while [pending] (oldest first) waits for the computer: each bot in the section its latest move put it in. */
+internal fun withMoves(bots: List<Bot>, pending: List<SectionMove>): List<Bot> {
+    if (pending.isEmpty()) return bots
+    val sections = pending.associate { it.bot to it.to }
+    return bots.map { bot -> if (bot.id in sections) bot.copy(section = sections[bot.id]) else bot }
+}
 
 /** The sections folded on this device (iOS `@AppStorage("collapsedRosterSections")`); not synced. */
 internal object FoldedSections {

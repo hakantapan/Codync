@@ -91,17 +91,26 @@ class RosterSectionsTest {
         assertEquals("a".repeat(39) + emoji, limitSectionName("a".repeat(39) + emoji + "b"))
     }
 
-    @Test fun aFoldedSectionRenamedOrRemovedHereStaysFoldedUnderBothNamesUntilTheComputerAnswers() {
-        fun renamed(folded: Set<String>, from: String, to: String?) = foldsAfterRenamed(foldsWhileRenaming(folded, from, to), from, to)
-        assertEquals(setOf("Home", "Work", "Jobs"), foldsWhileRenaming(setOf("Home", "Work"), "Work", "Jobs"))
-        assertEquals(setOf("Home", "Jobs"), renamed(setOf("Home", "Work"), "Work", "Jobs"))
-        assertEquals(setOf("Home"), foldsWhileRenaming(setOf("Home"), "Work", "Jobs")) // Unfolded: nothing changes.
-        assertEquals(setOf("Home"), renamed(setOf("Home"), "Work", "Home")) // Never unfolds the target.
-        assertEquals(setOf("Home", "Work"), foldsWhileRenaming(setOf("Home", "Work"), "Work", null)) // Removed: folded till it's gone,
-        assertEquals(setOf("Home"), renamed(setOf("Home", "Work"), "Work", null)) // then its name goes.
-        assertEquals(setOf("Home", "Work"), foldsWhileRenaming(setOf("Work"), "Work", "Home")) // A merge folds the section it joins.
-        assertEquals(setOf("Home"), renamed(setOf("Work"), "Work", "Home"))
-        assertEquals(setOf("Work"), renamed(setOf("Work"), "Work", "Work")) // The same name: still folded.
+    @Test fun aFoldedSectionRenamedOrRemovedHereStaysFoldedUnderItsNewName() {
+        assertEquals(setOf("Home", "Jobs"), foldsAfterRename(setOf("Home", "Work"), "Work", "Jobs"))
+        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home"), "Work", "Jobs")) // Unfolded: nothing changes.
+        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home"), "Work", "Home")) // Never unfolds the target.
+        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home", "Work"), "Work", null)) // Removed: its name goes.
+        assertEquals(setOf("Home"), foldsAfterRename(setOf("Work"), "Work", "Home")) // A merge folds the section it joins.
+        assertEquals(setOf("Work"), foldsAfterRename(setOf("Work"), "Work", "Work")) // The same name: still folded.
+    }
+
+    @Test fun aMoveShowsAtOnceAndARefusedOneLeavesTheBotWhereTheComputerOrALaterMovePutIt() {
+        val first = SectionMove("w1", "Home")
+        val second = SectionMove("w1", "Play")
+        val out = SectionMove("p1", null)
+        val section = { pending: List<SectionMove>, id: String -> withMoves(roster, pending).first { it.id == id }.section }
+        assertEquals("Home", section(listOf(first), "w1"))
+        assertEquals("Play", section(listOf(first, second), "w1")) // The latest move shows.
+        assertEquals("Play", section(listOf(second), "w1")) // The first refused: the later one still shows.
+        assertEquals("Work", section(emptyList(), "w1")) // Both refused: where the computer has it.
+        assertNull(section(listOf(out), "p1"))
+        assertEquals(roster, withMoves(roster, listOf(SectionMove("gone", "Home")))) // A bot not there: nothing changes.
     }
 
     @Test fun aRefusedRenamePutsTheFoldsBackUnlessOneChangedMeanwhile() {
