@@ -31,7 +31,7 @@ export function useComputerRoster(app: AppModel, shown: Set<string>) {
     },
     /** Renames or removes (null) a section on `store`'s computer; once the host has done it, a folded one stays folded under its new name, on this device. */
     renameSection(store: BotStore, from: string, to: string | null) {
-      void store.renameSection(from, to).then((accepted) => {
+      void store.sections.rename(from, to).then((accepted) => {
         // Read now, not from this render: the folds may have changed while the host answered.
         if (accepted) setFolded(foldsAfterRename(prefs.collapsedRosterSections.get(), from, sectionRename(from, to).to))
       })

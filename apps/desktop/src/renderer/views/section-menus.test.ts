@@ -12,7 +12,7 @@ function computer(hasRosterSections = true) {
   const store = {
     hasRosterSections,
     bots: new Map(bots.map((bot) => [bot.id, bot])),
-    setSection: (bot: Bot, name: string | null) => calls.push(['setSection', bot.id, name]),
+    sections: { move: (bot: Bot, name: string | null) => calls.push(['move', bot.id, name]) },
   } as unknown as BotStore
   const naming: SectionNaming[] = []
   return { store, calls, naming, bot: (id: string) => store.bots.get(id)! }
@@ -37,7 +37,7 @@ test('Move to section offers the other sections (hidden bots\' too), a new one, 
   rows[2]!.action()
   assert.deepEqual(naming.map((n) => [n.title, n.name]), [['New section', '']])
   naming[0]!.save('Side')
-  assert.deepEqual(calls, [['setSection', 'work', 'Home'], ['setSection', 'work', null], ['setSection', 'work', 'Side']])
+  assert.deepEqual(calls, [['move', 'work', 'Home'], ['move', 'work', null], ['move', 'work', 'Side']])
 })
 
 test('a bot in no section has nothing to be removed from', () => {

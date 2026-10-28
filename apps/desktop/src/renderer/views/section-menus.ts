@@ -16,9 +16,9 @@ export function moveToSectionItems(bot: Bot, store: BotStore, askName: (naming: 
   if (bot.lead || !store.hasRosterSections) return []
   const others = sectionNames(store.bots.values()).filter((name) => name !== bot.section)
   const submenu: MenuItem[] = [
-    ...others.map((name) => ({ title: name, icon: 'tray', verbatim: true, action: () => store.setSection(bot, name) })),
-    { title: 'New section…', icon: 'plus', divider: others.length > 0, action: () => askName({ title: 'New section', name: '', save: (name) => store.setSection(bot, name) }) },
-    ...(bot.section ? [{ title: 'Remove from section', icon: 'minus.circle', action: () => store.setSection(bot, null) }] : []),
+    ...others.map((name) => ({ title: name, icon: 'tray', verbatim: true, action: () => store.sections.move(bot, name) })),
+    { title: 'New section…', icon: 'plus', divider: others.length > 0, action: () => askName({ title: 'New section', name: '', save: (name) => store.sections.move(bot, name) }) },
+    ...(bot.section ? [{ title: 'Remove from section', icon: 'minus.circle', action: () => store.sections.move(bot, null) }] : []),
   ]
   return [{ title: 'Move to section', icon: 'tray', submenu }]
 }

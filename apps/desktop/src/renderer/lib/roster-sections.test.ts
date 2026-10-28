@@ -99,7 +99,7 @@ const apply = (bots: Map<string, Placeable>, placed: [string, Placeable][]) => {
 
 test('a refused section change for one bot puts back only its section', () => {
   const bots = computerBots({ id: 'a', section: 'Work', unread: 0 }, { id: 'b', section: 'Work', unread: 0 })
-  apply(bots, placedBots(bots, ['a'], 'Home')) // setSection shows the move…
+  apply(bots, placedBots(bots, ['a'], 'Home')) // The move shows at once…
   bots.set('a', { ...bots.get('a')!, unread: 3 }) // …and a message arrives meanwhile.
   const undo = restoredBots(bots, [{ id: 'a', from: 'Work', to: 'Home' }])
   assert.deepEqual(undo, [['a', { id: 'a', section: 'Work', unread: 3 }]])

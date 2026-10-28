@@ -15,9 +15,9 @@ import {
 } from '@shared/models'
 import type { CallLine } from '@shared/calls'
 import type { HostClient } from '../client/host-client'
-import { placedBots, restoredBots, sectionMembers, sectionRename } from '../lib/roster-sections'
 import { readSharedFile } from '../../shared/files.ts'
 import { FileDownloads } from './file-downloads'
+import { BotSections } from './bot-sections'
 import { BotSync, sleep } from './bot-sync'
 
 export { builtInBackendName, type Connection } from './bot-mirror'
@@ -50,6 +50,7 @@ export const QUICK_REACTIONS = ['👍', '❤️', '😂', '🎉', '👀', '✅']
  */
 export class BotStore extends BotSync {
   readonly fileDownloads = new FileDownloads(() => this.changed())
+  readonly sections = new BotSections(() => this.bots, () => this.changed(), (op, undo) => this.perform(op, true, undo))
 
   override retire() { this.fileDownloads.retire(); super.retire() }
 
@@ -298,33 +299,6 @@ export class BotStore extends BotSync {
 
   setPinned(bot: Bot, pinned: boolean) {
     this.patchBot(bot, { pinned })
-  }
-
-  /** Puts the bot in roster section `name`, or takes it out of its section (null). Sends only the section, so a setting changed on another device meanwhile stays. */
-  setSection(bot: Bot, name: string | null) {
-    const section = name?.trim() || null
-    void this.moveToSection([bot.id], section ?? undefined, (c) => c.call('updateBot', { id: bot.id, section }))
-  }
-
-  /** Renames a section on this computer (onto another one's name merges them); null removes it, its bots stay. Resolves to whether the host did it. */
-  renameSection(from: string, to: string | null): Promise<boolean> {
-    const rename = sectionRename(from, to)
-    return this.moveToSection(sectionMembers(this.bots.values(), from), rename.to ?? undefined, (c) => c.call('renameSection', rename))
-  }
-
-  /**
-   * Shows bots `ids` in section `to` (none: undefined) before the host's bot events confirm it, then
-   * sends `op`; a refusal takes back the moves nothing changed since. Resolves to whether the host accepted.
-   */
-  private moveToSection(ids: string[], to: string | undefined, op: (c: HostClient) => Promise<unknown>): Promise<boolean> {
-    const moves = ids.map((id) => ({ id, from: this.bots.get(id)?.section, to }))
-    this.place(placedBots(this.bots, ids, to))
-    return this.perform(op, true, () => this.place(restoredBots(this.bots, moves)))
-  }
-
-  private place(placed: [string, Bot][]) {
-    for (const [id, bot] of placed) this.bots.set(id, bot)
-    this.changed()
   }
 
   /** Whether the bot may see and use the computer's screen. */
