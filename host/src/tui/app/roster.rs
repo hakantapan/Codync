@@ -1,5 +1,5 @@
-//! The roster as shown: its order and its lines (pinned bots, then each section under its label,
-//! sorted by name, then bots in none), and moving through it.
+//! The roster as shown: its order and its lines (the lead, pinned bots, then each section under its
+//! label, sorted by name, then bots in none), and moving through it.
 
 use std::cmp::Reverse;
 use std::collections::HashSet;
@@ -29,14 +29,16 @@ pub enum RosterLine<'a> {
 }
 
 impl Bot {
-    /// The section the roster shows it in: none while pinned (pinned bots stay on top, outside sections).
+    /// The section the roster shows it in: none for the lead or while pinned (they stay on top,
+    /// outside sections).
     pub fn shown_section(&self) -> Option<&str> {
-        if self.pinned { None } else { self.section.as_deref() }
+        if self.lead || self.pinned { None } else { self.section.as_deref() }
     }
 
-    /// The bots it shows among and reorders with: every pinned bot, or the rest of its section (or of none).
-    pub fn roster_group(&self) -> (bool, Option<&str>) {
-        (self.pinned, self.shown_section())
+    /// The bots it shows among and reorders with: its band (`Bot::band`), and for the rest its section
+    /// (or none).
+    pub fn roster_group(&self) -> (u8, Option<&str>) {
+        (self.band(), self.shown_section())
     }
 }
 
@@ -55,18 +57,18 @@ fn section_key(name: &str) -> (String, &str) {
 }
 
 /// `roster` (in `App::roster` order) as lines; a folded section is its label alone. Without pinned
-/// bots or sections there is nothing to tell apart, so no labels.
+/// bots or sections there is nothing to tell apart, so no labels; the lead, on top, has none.
 pub fn roster_lines<'a>(roster: &[&'a Bot], folded: &HashSet<String>) -> Vec<RosterLine<'a>> {
     let labeled = roster.iter().any(|b| b.pinned || b.shown_section().is_some());
     let mut lines = vec![];
     let mut group = None;
     for &b in roster {
         let here = b.roster_group();
-        if labeled && group != Some(here) {
+        if labeled && !b.lead && group != Some(here) {
             lines.push(match here {
-                (true, _) => RosterLine::Label("PINNED"),
-                (false, None) => RosterLine::Label("BOTS"),
-                (false, Some(name)) => {
+                (_, None) if b.pinned => RosterLine::Label("PINNED"),
+                (_, None) => RosterLine::Label("BOTS"),
+                (_, Some(name)) => {
                     let members: Vec<&Bot> =
                         roster.iter().copied().filter(|m| m.shown_section() == Some(name)).collect();
                     RosterLine::Section {
@@ -145,13 +147,13 @@ fn step(lines: &[RosterLine<'_>], selected: Option<&Bot>, delta: isize) -> Optio
 const NOT_IN_A_SECTION: &str = "This bot isn't in a section";
 
 impl App {
-    /// Roster order: pinned first, then sections by name, then bots in none; inside each, where the
-    /// user put them, then most recent (same as the phone).
+    /// Roster order: the lead, pinned bots, then sections by name, then bots in none; inside each,
+    /// where the user put them, then most recent (same as the phone).
     pub fn roster(&self) -> Vec<&Bot> {
         let mut v: Vec<&Bot> = self.bots.values().filter(|b| !b.hidden).collect();
         v.sort_by_cached_key(|&b| {
             let section = b.shown_section().map(section_key);
-            (!b.pinned, section.is_none(), section, b.position, Reverse(b.last_at), b.name.clone())
+            (b.band(), section.is_none(), section, b.position, Reverse(b.last_at), b.name.clone())
         });
         v
     }
@@ -194,7 +196,12 @@ impl App {
     }
 
     /// `w`: "Move to section" for the selected bot: one of the sections, a new name, or empty for none.
+    /// The lead stays on top, outside sections.
     pub(super) fn ask_section(&mut self) {
+        if self.bot().is_some_and(|b| b.lead) {
+            self.flash("The lead bot always stays on top");
+            return;
+        }
         if self.bot().is_none() || !self.sections_supported() {
             return;
         }
@@ -281,6 +288,23 @@ mod tests {
         assert_eq!(shown(&app), ["PINNED", "p", "▾ home (1)", "h", "▾ Work (2)", "w1", "w2", "BOTS", "x"]);
         app.folded.insert("Work".into());
         assert_eq!(shown(&app), ["PINNED", "p", "▾ home (1)", "h", "▸ Work (2) 3", "BOTS", "x"]);
+    }
+
+    #[tokio::test]
+    async fn the_lead_stays_on_top_without_a_label_or_a_section() {
+        let mut app = test_app();
+        let lead = json!({"id": "l", "lead": true, "section": "Work", "lastAt": 0});
+        app.bots.insert("l".into(), Bot::parse(&lead).expect("a bot with an id parses"));
+        add(&mut app, "w", false, Some("Work"), 2, 0);
+        add(&mut app, "x", false, None, 1, 0);
+        assert_eq!(shown(&app), ["l", "▾ Work (1)", "w", "BOTS", "x"]);
+        add(&mut app, "p", true, None, 3, 0);
+        assert_eq!(shown(&app), ["l", "PINNED", "p", "▾ Work (1)", "w", "BOTS", "x"]);
+        app.host_version = "2.24.0".into();
+        app.selected = Some("l".into());
+        app.ask_section();
+        assert!(app.overlays.is_empty(), "the lead goes in no section");
+        assert_eq!(app.hint.as_ref().map(|(s, _)| s.as_str()), Some("The lead bot always stays on top"));
     }
 
     #[tokio::test]

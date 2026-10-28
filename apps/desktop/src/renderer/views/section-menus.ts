@@ -11,9 +11,9 @@ export interface SectionNaming {
   save: (name: string) => void
 }
 
-/** A bot row's "Move to section"; none while its computer runs a host without sections. */
+/** A bot row's "Move to section"; none for the lead (it stays on top, outside sections) or while its computer runs a host without sections. */
 export function moveToSectionItems(bot: Bot, store: BotStore, askName: (naming: SectionNaming) => void): ActionItem[] {
-  if (!store.hasRosterSections) return []
+  if (bot.lead || !store.hasRosterSections) return []
   const others = sectionNames(store.bots.values()).filter((name) => name !== bot.section)
   const submenu: MenuItem[] = [
     ...others.map((name) => ({ title: name, icon: 'tray', action: () => store.setSection(bot, name) })),

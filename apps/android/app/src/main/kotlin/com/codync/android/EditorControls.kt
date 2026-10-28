@@ -39,16 +39,17 @@ import com.kyant.shapes.RoundedRectangle
 @Composable internal fun Field(label: String, detail: String? = null, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(label, style = Type.body, color = Palette.text)
-            if (detail != null) Text(detail, style = Type.caption.copy(lineHeight = Type.caption.lineHeight * 1.12f), color = Palette.secondary)
+            Text(tr(label), style = Type.body, color = Palette.text)
+            if (detail != null) Text(tr(detail), style = Type.caption.copy(lineHeight = Type.caption.lineHeight * 1.12f), color = Palette.secondary)
         }
         content()
     }
 }
 
-/** A rounded input box (`fieldBox`): a plain field on the ground color. */
+/** A rounded input box (`fieldBox`): a plain field on the ground color, or on the card color in an outlined card. */
 @Composable internal fun FieldBox(text: String, onChange: (String) -> Unit, prompt: String, minLines: Int = 1, maxLines: Int = 1,
-    style: TextStyle = Type.body, fill: Color = Palette.background, capitalize: Boolean = true, imeAction: ImeAction = ImeAction.Default,
+    style: TextStyle = Type.body, fill: Color = if (LocalCardStyle.current == CardStyle.Outlined) Palette.surface else Palette.background,
+    capitalize: Boolean = true, imeAction: ImeAction = ImeAction.Default,
     actions: KeyboardActions = KeyboardActions.Default) {
     Box(Modifier.fillMaxWidth().clip(RoundedRectangle(12.dp)).background(fill).padding(horizontal = 14.dp, vertical = 11.dp)) {
         PlainTextField(text, onChange, Modifier.fillMaxWidth(), prompt, singleLine = maxLines == 1, style = style, minLines = minLines,
@@ -61,8 +62,8 @@ import com.kyant.shapes.RoundedRectangle
 @Composable internal fun SwitchRow(title: String, detail: String? = null, isOn: Boolean, onChange: (Boolean) -> Unit, enabled: Boolean = true) {
     CodyncSwitch(isOn, onChange, Modifier.fillMaxWidth(), enabled) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text(title, style = Type.body, color = Palette.text)
-            if (detail != null) Text(detail, style = Type.caption.copy(lineHeight = Type.caption.lineHeight * 1.12f), color = Palette.secondary)
+            Text(tr(title), style = Type.body, color = Palette.text)
+            if (detail != null) Text(tr(detail), style = Type.caption.copy(lineHeight = Type.caption.lineHeight * 1.12f), color = Palette.secondary)
         }
     }
 }
@@ -99,7 +100,7 @@ import com.kyant.shapes.RoundedRectangle
 @Composable internal fun PluginToggles(title: String, empty: String, items: List<Triple<String, String, String>>, selection: List<String>,
     change: (List<String>) -> Unit, info: ((String) -> Unit)? = null) {
     CardSection(title) {
-        if (items.isEmpty()) row { Text(empty, style = Type.body, color = Palette.secondary) }
+        if (items.isEmpty()) row { Text(tr(empty), style = Type.body, color = Palette.secondary) }
         for ((id, name, detail) in items) row {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(Modifier.weight(1f)) {

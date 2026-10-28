@@ -28,4 +28,12 @@ class RosterMoveTest {
         // Pinned bots show together whatever their section, so they move among each other.
         assertEquals(listOf("pin2", "pin", "a", "b", "c"), moved(sectioned, "pin", 1))
     }
+
+    @Test fun theLeadComesFirstAndStaysThere() {
+        val bots = listOf(Bot("pin", pinned = true, lastAt = 9), Bot("a", lastAt = 5), Bot("lead", lead = true, position = 3, lastAt = 1))
+        val sorted = roster(bots)
+        assertEquals(listOf("lead", "pin", "a"), sorted.map(Bot::id))
+        assertNull(moved(sorted, "lead", 1))
+        assertNull(moved(sorted, "pin", -1))
+    }
 }

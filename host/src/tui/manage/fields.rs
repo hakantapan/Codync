@@ -86,6 +86,10 @@ impl App {
                 let r = Reply::SectionRenamed { from: from.clone(), to: to.clone() };
                 self.sheet("renameSection", json!({"from": from, "to": to}), r);
             }
+            Submit::RenameArtifact { bot, artifact } => {
+                let body = json!({"botId": bot, "artifactId": artifact, "title": values["title"]});
+                self.sheet("renameArtifact", body, Reply::FieldsSaved);
+            }
         }
     }
 }

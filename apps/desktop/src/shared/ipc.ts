@@ -55,10 +55,13 @@ export interface TraySummary {
     subtitle: string
     error: string | null
   } | null
-  version: string | null
+  /** This computer's networks (codync-network), lines already translated; null on hosts without them. */
+  networks: { title: string; computers: { label: string; dot: TrayImage | null }[] }[] | null
   needsAttention: boolean
   textSize: number
   usageIconStyle: 'character' | 'original'
+  /** The menu bar is a system menu, so the main process translates its labels from this. */
+  language: 'en' | 'zh' | 'zh-Hant' | 'ja' | 'ko' | 'fr' | 'de' | 'es'
 }
 
 /** Things the tray menu (or the app menu) asks the window to do. */
@@ -67,11 +70,13 @@ export type WindowCommand =
   | { kind: 'stopBot'; ref: string }
   | { kind: 'reviewApprovals' }
   | { kind: 'confirmReset' }
+  | { kind: 'upToDate' }
   | { kind: 'setTextSize'; size: number }
   | { kind: 'stepTextSize'; up: boolean | null }
   | { kind: 'setUsageIconStyle'; style: 'character' | 'original' }
   | { kind: 'setRemoteScreen'; on: boolean }
   | { kind: 'computerAccess' }
+  | { kind: 'networkSettings' }
   | { kind: 'newBot' }
   | { kind: 'search' }
   | { kind: 'toggleSidebar' }
@@ -204,6 +209,12 @@ export interface CodyncBridge {
     install(): void
     setAutoCheck(on: boolean): void
     setAutoDownload(on: boolean): void
+  }
+  /** Artifacts shown in a frame of their own (`main/artifacts.ts`). */
+  artifacts: {
+    /** Makes `codync-artifact://<id>` serve this HTML. */
+    show(id: string, html: Uint8Array): Promise<void>
+    openInBrowser(id: string, html: Uint8Array): Promise<void>
   }
   files: {
     begin(file: SharedFile): Promise<string | null>

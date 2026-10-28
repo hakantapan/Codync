@@ -71,7 +71,11 @@ extension BotStore {
     }
 
     public func stop(_ botId: String) { perform(replay: true) { try await $0.stop(botId) } }
-    public func logCall(_ botId: String, seconds: Int) { perform { try await $0.logCall(botId, seconds: seconds) } }
+    /// A call's audio is on: the lead speaks first, on the call (an older host, which has no lead, never gets this).
+    public func callStarted(_ botId: String, call: String) {
+        guard bots[botId]?.lead == true else { return }
+        perform { try await $0.callStarted(botId, call: call) }
+    }
     public func newSession(_ botId: String) { perform { try await $0.newSession(botId) } }
     /// The bot's own agent again, off the fallback it runs on.
     public func switchBack(_ botId: String) { perform(replay: true) { try await $0.switchBack(botId) } }
@@ -241,7 +245,7 @@ extension BotStore {
 
     // MARK: roster order
 
-    /// Puts the roster in `ids` order (pinned bots still sort first) and sends it; the host
+    /// Puts the roster in `ids` order (the lead and pinned bots still sort first) and sends it; the host
     /// syncs it to every device. The order it already has sends nothing.
     public func reorder(_ ids: [String]) {
         guard ids != roster.map(\.id) else { return }
@@ -249,7 +253,7 @@ extension BotStore {
         perform(replay: true) { try await $0.reorderBots(ids) }
     }
 
-    /// One place up (-1) or down (+1) among the bots it moves with (`isRosterPeer`; VoiceOver).
+    /// One place up (-1) or down (+1) among the bots it moves with (`isRosterPeer`: its band and, below the top, its section; VoiceOver).
     public func move(_ botId: String, by offset: Int) {
         guard let bot = bots[botId] else { return }
         var peers = roster.filter { $0.isRosterPeer(of: bot) }.map(\.id)
@@ -314,6 +318,11 @@ extension BotStore {
         bots[group.id] = group
     }
 
+    /// What a voice call carried, for its conversation. Never `upsert`ed, like `botConversation`.
+    public func callEntries(_ botId: String, call: String) async throws -> [Entry] {
+        try await ready().callEntries(botId: botId, call: call)
+    }
+
     /// The bot-to-bot notices between a chat and a peer. Never `upsert`ed: old notices in the
     /// mirror would break `loadOlder`, which pages from the oldest loaded `seq`.
     public func botConversation(_ botId: String, peer: String) async throws -> [Entry] {
@@ -334,6 +343,13 @@ extension BotStore {
     public func refreshUsage() async {
         guard !retired, let client else { return }
         if let u = try? await client.usage(refresh: true), !Task.isCancelled { setUsage(u) }
+    }
+
+    /// Reads the network again; the host asks the other computers when what it heard is stale, and
+    /// the `network` event brings what they answer.
+    public func refreshNetwork() async {
+        guard !retired, let client else { return }
+        if let view = try? await client.networkView(), !Task.isCancelled { network = view }
     }
 
     public func loadOlder(_ botId: String) async {

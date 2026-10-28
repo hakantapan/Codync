@@ -119,7 +119,7 @@ public struct Spinner: View {
             .rotationEffect(.degrees(turning ? 360 : 0))
             .animation(reduceMotion ? nil : .linear(duration: 0.8).repeatForever(autoreverses: false), value: turning)
             .onAppear { turning = true }
-            .accessibilityLabel("Loading")
+            .accessibilityLabel(L10n.tr("Loading"))
     }
 }
 
@@ -153,7 +153,7 @@ public struct ChoicePicker<ID: Hashable>: View {
                 if let picture = image?(selection) {
                     picture.resizable().scaledToFit().frame(width: 16, height: 16)
                 }
-                Text(options.first { $0.id == selection }?.label ?? "Choose").lineLimit(1)
+                Text(L10n.tr(options.first { $0.id == selection }?.label ?? "Choose")).lineLimit(1)
                 Image(systemName: "chevron.down").font(.caption2.weight(.semibold)).foregroundStyle(Palette.secondary)
             }
             .font(.body)
@@ -164,7 +164,7 @@ public struct ChoicePicker<ID: Hashable>: View {
             }
         }
         .fixedSize(horizontal: !fitsAvailableWidth, vertical: true)
-        .help(options.first { $0.id == selection }?.label ?? "Choose")
+        .help(L10n.tr(options.first { $0.id == selection }?.label ?? "Choose"))
     }
 }
 
@@ -187,7 +187,7 @@ public struct SegmentedChoice<ID: Hashable>: View {
                 Button {
                     withAnimation(Motion.reduced(Motion.morph, reduceMotion)) { selection = option.id }
                 } label: {
-                    Text(option.label)
+                    Text(L10n.tr(option.label))
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(on ? Palette.text : Palette.secondary)
                         .lineLimit(1)
@@ -240,7 +240,7 @@ public struct TabChoice<ID: Hashable>: View {
                 Button {
                     withAnimation(Motion.reduced(Motion.morph, reduceMotion)) { selection = option.id }
                 } label: {
-                    Text(option.label)
+                    Text(L10n.tr(option.label))
                         .font(.subheadline)
                         .foregroundStyle(on ? Palette.text : Palette.secondary)
                         .lineLimit(1)
@@ -276,9 +276,9 @@ public struct ChoiceList<ID: Hashable>: View {
                 Button { selection = option.id } label: {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(option.label).foregroundStyle(Palette.text)
+                            Text(L10n.tr(option.label)).foregroundStyle(Palette.text)
                             if let detail = option.detail, !detail.isEmpty {
-                                Text(detail).font(.subheadline).foregroundStyle(Palette.secondary)
+                                Text(L10n.tr(detail)).font(.subheadline).foregroundStyle(Palette.secondary)
                             }
                         }
                         Spacer(minLength: 8)
@@ -341,7 +341,7 @@ public struct CardSection<Content: View, Accessory: View>: View {
         VStack(alignment: .leading, spacing: 10) {
             if let title {
                 HStack(spacing: 8) {
-                    Text(title)
+                    Text(L10n.tr(title))
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Palette.text)
                         .accessibilityAddTraits(.isHeader)
@@ -350,18 +350,21 @@ public struct CardSection<Content: View, Accessory: View>: View {
                 }
                 .padding(.leading, 2)
             }
-            VStack(alignment: .leading, spacing: 0) {
-                _VariadicView.Tree(HairlineRows()) { content }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(cardStyle == .filled ? Palette.surface : .clear, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .overlay {
-                if cardStyle == .outlined {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Palette.border)
+            // No rows (`{}`): a footer-only note, without an empty card.
+            if Content.self != EmptyView.self {
+                VStack(alignment: .leading, spacing: 0) {
+                    _VariadicView.Tree(HairlineRows()) { content }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(cardStyle == .filled ? Palette.surface : .clear, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay {
+                    if cardStyle == .outlined {
+                        RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Palette.border)
+                    }
                 }
             }
             if let footer {
-                Text(footer)
+                Text(L10n.tr(footer))
                     .font(.caption)
                     .foregroundStyle(Palette.secondary)
                     .lineSpacing(2)
@@ -420,15 +423,15 @@ public struct ValueRow<Value: View>: View {
     public init(_ label: String, detail: String? = nil, value: String) where Value == Text {
         self.label = label
         self.detail = detail
-        self.value = Text(value)
+        self.value = Text(L10n.tr(value))
     }
 
     public var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(label).foregroundStyle(Palette.text)
+                Text(L10n.tr(label)).foregroundStyle(Palette.text)
                 if let detail {
-                    Text(detail)
+                    Text(L10n.tr(detail))
                         .font(.caption)
                         .foregroundStyle(Palette.secondary)
                         .lineLimit(noteLines)

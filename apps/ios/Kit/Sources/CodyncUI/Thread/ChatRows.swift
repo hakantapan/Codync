@@ -14,6 +14,10 @@ struct ChatRow: View {
     var reply: (() -> Void)?
     /// A failure notice's "Add a fallback": the bot's details.
     var addFallback: (() -> Void)?
+    /// An artifact card's artifact, full size.
+    var openArtifact: ((ArtifactRef) -> Void)?
+    /// A voice call's line: the call's conversation.
+    var openCall: (() -> Void)?
     @Environment(BotStore.self) private var model
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -30,7 +34,7 @@ struct ChatRow: View {
         case "agent":
             VStack(alignment: .leading, spacing: 4) {
                 if chat?.isGroup == true, groupStart { AuthorLabel(botId: entry.data.author) }
-                AgentBubble(entry: entry, openTrace: openTrace, reply: reply)
+                AgentBubble(entry: entry, openTrace: openTrace, reply: reply, openArtifact: openArtifact)
                 ReactionsRow(entry: entry)
                     .padding(.leading, chat?.isGroup == true ? 34 : 0)
             }
@@ -52,6 +56,8 @@ struct ChatRow: View {
                 HandoffCardRow(entry: entry, card: card).padding(.top, 10)
             } else if let change = entry.data.agentSwitch {
                 AgentSwitchRow(entry: entry, change: change).padding(.top, 10)
+            } else if entry.data.call != nil, let openCall {
+                CallLineRow(entry: entry, open: openCall).padding(.top, 6)
             } else {
                 NoticeRow(entry: entry, addFallback: addFallback).padding(.top, 10)
             }
@@ -76,13 +82,15 @@ struct TimeSeparator: View {
 /// Who wrote a message in a group: their avatar and name in their color.
 struct AuthorLabel: View {
     let botId: String?
+    /// The name for an author that isn't one of this computer's bots (a bot on another computer).
+    var name: String?
     @Environment(BotStore.self) private var model
 
     var body: some View {
         let bot = botId.flatMap { model.bots[$0] }
         HStack(spacing: 8) {
             if let bot { CharacterAvatar(bot: bot, size: 26, animated: false) }
-            Text(model.authorName(botId))
+            Text(model.authorName(botId, fallback: name))
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(bot.map { AvatarPalette.color($0.avatarColor) } ?? Palette.secondary)
         }
@@ -95,7 +103,7 @@ struct QuoteLine: View {
 
     var body: some View {
         Label {
-            Text("“\(MessagePreview.text(text))”").lineLimit(1)
+            Text(L10n.tr("“\(MessagePreview.text(text))”")).lineLimit(1)
         } icon: {
             Image(systemName: "text.bubble")
         }
@@ -147,25 +155,25 @@ struct UserBubble: View {
     @ViewBuilder private var status: some View {
         switch entry.data.status {
         case "sending":
-            Text("Sending…").font(.caption2).foregroundStyle(Palette.tertiary)
+            Text(L10n.tr("Sending…")).font(.caption2).foregroundStyle(Palette.tertiary)
         case "queued":
             Text(botWorking ? "Queued until this response finishes" : "Queued")
                 .font(.caption2)
                 .foregroundStyle(Palette.tertiary)
         case "failed":
             HStack(spacing: 10) {
-                Text("Failed to send").foregroundStyle(Palette.danger)
-                Button("Resend", systemImage: "arrow.clockwise") { model.retry(entry) }.labelStyle(.iconOnly).help("Resend")
-                Button("Delete", systemImage: "trash") { model.discard(entry) }.labelStyle(.iconOnly).help("Delete")
+                Text(L10n.tr("Failed to send")).foregroundStyle(Palette.danger)
+                Button(L10n.tr("Resend"), systemImage: "arrow.clockwise") { model.retry(entry) }.labelStyle(.iconOnly).help("Resend")
+                Button(L10n.tr("Delete"), systemImage: "trash") { model.discard(entry) }.labelStyle(.iconOnly).help("Delete")
             }
             .buttonStyle(.plain)
             .font(.caption2.bold())
         case "cancelled":
-            Text("Not sent — stopped").font(.caption2).foregroundStyle(Palette.tertiary)
+            Text(L10n.tr("Not sent — stopped")).font(.caption2).foregroundStyle(Palette.tertiary)
         case "waiting":
             HStack(spacing: 10) {
-                Text("Waiting for the computer to come online").foregroundStyle(Palette.tertiary)
-                Button("Cancel", systemImage: "xmark.circle") { model.cancelQueued(entry) }
+                Text(L10n.tr("Waiting for the computer to come online")).foregroundStyle(Palette.tertiary)
+                Button(L10n.tr("Cancel"), systemImage: "xmark.circle") { model.cancelQueued(entry) }
                     .labelStyle(.iconOnly)
                     .help("Don't send")
                     .accessibilityLabel("Don't send")
@@ -173,7 +181,7 @@ struct UserBubble: View {
             .buttonStyle(.plain)
             .font(.caption2)
         case "delivering":
-            Text("Delivered to the computer").font(.caption2).foregroundStyle(Palette.tertiary)
+            Text(L10n.tr("Delivered to the computer")).font(.caption2).foregroundStyle(Palette.tertiary)
         default:
                 EmptyView()
         }
@@ -184,12 +192,15 @@ struct AgentBubble: View {
     let entry: Entry
     let openTrace: () -> Void
     var reply: (() -> Void)?
+    var openArtifact: ((ArtifactRef) -> Void)?
     @Environment(BotStore.self) private var model
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Group {
-                if let files = entry.data.files, !files.isEmpty {
+                if let artifact = entry.data.artifact {
+                    ArtifactCard(botId: entry.botId, ref: artifact) { openArtifact?(artifact) }
+                } else if let files = entry.data.files, !files.isEmpty {
                     ForEach(files) { file in FileDownloadCard(entry: entry, file: file) }
                 } else {
                     MarkdownText(entry.data.text ?? "").equatable()
@@ -219,8 +230,9 @@ struct NoticeRow: View {
 
     var body: some View {
         let text = entry.data.text ?? ""
+        // A call an older app logged, with no conversation to open.
         if let seconds = entry.data.callSeconds {
-            Label("\(text) · \(String(format: "%02d:%02d", seconds / 60, seconds % 60))", systemImage: "waveform")
+            Label("\(L10n.tr(text)) · \(String(format: "%02d:%02d", seconds / 60, seconds % 60))", systemImage: "waveform")
                 .font(.footnote.monospacedDigit())
                 .foregroundStyle(Palette.secondary)
                 .frame(maxWidth: .infinity)
@@ -234,19 +246,19 @@ struct NoticeRow: View {
         case "error":
             VStack(alignment: .leading, spacing: 10) {
                 Label {
-                    Text(text).font(.footnote).foregroundStyle(Palette.text).textSelection(.enabled)
+                    Text(L10n.tr(text)).font(.footnote).foregroundStyle(Palette.text).textSelection(.enabled)
                 } icon: {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Palette.danger)
                 }
                 if entry.data.addFallback == true, let addFallback {
-                    Button("Add a fallback", action: addFallback).buttonStyle(.secondary)
+                    Button(L10n.tr("Add a fallback"), action: addFallback).buttonStyle(.secondary)
                 }
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(Palette.danger.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
         default:
-            Text(text)
+            Text(L10n.tr(text))
                 .font(.footnote)
                 .foregroundStyle(Palette.secondary)
                 .multilineTextAlignment(.center)
@@ -255,28 +267,89 @@ struct NoticeRow: View {
     }
 }
 
-/// The bot's current activity and elapsed time.
+/// The bot's current activity and elapsed time; with thinking details on (Settings), a tap unfolds the turn's steps.
 struct WorkingIndicator: View {
     let bot: Bot
+    let steps: [Entry]
+    @AppStorage(ThinkingDetails.storageKey) private var details = false
+    @State private var expanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var open: Bool { details && expanded }
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
+        VStack(alignment: .leading, spacing: 0) {
+            if details {
+                Button {
+                    withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { expanded.toggle() }
+                } label: {
+                    status.contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(L10n.tr(open ? "Hide steps" : "Show steps"))
+                .accessibilityValue(open ? "Expanded" : "Collapsed")
+            } else {
+                status
+            }
+            if open {
+                WorkingSteps(steps: steps)
+                    .padding(.top, 12)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: open ? .infinity : nil, alignment: .leading)
+        .background(Palette.bubbleAgent, in: shape)
+        // Folding steps never cross the pill's edge.
+        .clipShape(shape)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.trailing, 40)
+    }
+
+    private var status: some View {
         HStack(spacing: 8) {
             ThinkingOrb(state: bot.needsInput ? .listening : .working, size: 16, color: bot.needsInput ? Palette.warning : Palette.secondary)
-            Text(bot.activity.isEmpty ? "Working…" : bot.activity)
+            Text(L10n.tr(bot.activity.isEmpty ? "Working…" : bot.activity))
                 .font(.subheadline)
                 .foregroundStyle(bot.needsInput ? Palette.warning : Palette.secondary)
                 .lineLimit(1)
+                .frame(maxWidth: open ? .infinity : nil, alignment: .leading)
             if let started = bot.startedAt {
                 Text(Date(milliseconds: started), style: .timer)
                     .font(.footnote.monospacedDigit())
                     .foregroundStyle(Palette.tertiary)
             }
+            if details {
+                Image(systemName: "chevron.right")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(Palette.tertiary)
+                    .rotationEffect(.degrees(open ? 90 : 0))
+            }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Palette.bubbleAgent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.trailing, 40)
+    }
+}
+
+/// The turn's thinking, narration, tool calls and plan: hugs them, scrolls once they're taller than
+/// 280 points, and keeps the newest in view. One scroll view, so what the reader unfolds stays unfolded.
+/// A turn can have none yet: Claude's thinking text arrives as its thinking ends.
+private struct WorkingSteps: View {
+    let steps: [Entry]
+
+    var body: some View {
+        CappedHeight(max: 280) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    if steps.isEmpty { Text(L10n.tr("Nothing yet.")).foregroundStyle(Palette.tertiary) }
+                    ForEach(steps) { TraceRow(entry: $0, unfolded: true) }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
+            .defaultScrollAnchor(.bottom)
+        }
     }
 }
 

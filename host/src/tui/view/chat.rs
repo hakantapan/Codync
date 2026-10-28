@@ -6,6 +6,7 @@ use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
 use super::super::app::{App, Click, Editor, Entry, Mark, SlashAction, Status};
+use super::super::l10n::tr;
 use super::super::md::{truncate, width as w};
 use super::buffer::{fill, hline, put, put_line, rput, u};
 use super::set_cursor;
@@ -124,12 +125,18 @@ pub(super) fn chat(buf: &mut Buffer, r: Rect, app: &mut App, narrow: bool) {
     let mut used = clines.get(first).map_or(0, |l| w(l));
     if draft.text.is_empty() {
         // The apps' wording.
-        let placeholder = if app.pick.is_some() {
-            "j k pick · ↵ reply · 1–6 react · f save files · c copy · esc".to_owned()
+        let placeholder = if let Some(pick) = &app.pick {
+            let artifact = app.lane(&b.id).iter().any(|e| &e.id == pick && e.artifact().is_some());
+            if artifact {
+                "j k pick · o open in the browser · f save as HTML · ↵ reply · 1–6 react · c copy · esc"
+            } else {
+                "j k pick · ↵ reply · 1–6 react · f save files · c copy · esc"
+            }
+            .to_owned()
         } else if app.reply.is_some() {
-            "Reply…".to_owned()
+            tr("Reply…").into_owned()
         } else if b.group {
-            "Ask everyone · @ to ask one bot".to_owned()
+            tr("Ask everyone · @ to ask one bot").into_owned()
         } else {
             format!("Message {}…", b.name)
         };

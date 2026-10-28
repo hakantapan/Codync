@@ -14,62 +14,14 @@ a version without one gets a generic "Bug fixes and improvements" line. Delete o
 ### en-US
 - Sort the bot list into your own sections, like Work and Personal: touch and hold a bot and choose Move to section, then tap a section's heading to fold it, with its unread count showing while it's folded
 
-## 2.23.1
+## 2.31.2
 
 ### zh-Hant
-- 點一下聊天訊息或空白區域即可收起鍵盤，保留正常捲動與按鈕操作
-- 聊天停在底部時，鍵盤開啟後仍保持最後一則訊息可見
-- 回到最新訊息按鈕改用系統 Liquid Glass
+- 從手機更新電腦時，電腦重新啟動的期間會顯示「正在更新…」，不會再要你申請訪問。
+- Codex bot 現在拿得到和你 Codex 設定裡同名的聯結器（例如 Notion），不會再看不到它的工具。
+- Codex bot 傳訊息和整理記憶的動作，不會再出現在工作步驟裡。
 
 ### en-US
-- Tap a message or empty conversation space to dismiss the keyboard while preserving scrolling and button actions
-- Keep the latest message visible when opening the keyboard at the bottom of a chat
-- The jump-to-latest button now uses native Liquid Glass
-
-## 2.23.0
-
-### zh-Hant
-- 外觀可選擇跟隨系統、淺色或深色，並保留此裝置的偏好
-
-### en-US
-- Choose System, Light or Dark appearance and keep your preference on this device
-
-## 2.22.2
-
-### zh-Hant
-- 擴充功能移除 Apps 區段，Composio 統一從 Connectors 登入使用
-
-### en-US
-- Extensions removes the Apps section; connect Composio from Connectors
-
-## 2.22.1
-
-### zh-Hant
-- 已連線電腦的資訊與操作排列更緊湊，電腦名稱完整顯示
-- 手機連不上帳號內的電腦時，可直接要求存取權限；連線說明也更容易閱讀
-- 手機的裝置清單不再提供刪除同帳號電腦的操作，避免誤刪
-
-### en-US
-- Connected computer cards keep their full names visible with a more compact layout for connection details and actions
-- Ask for access directly when your phone cannot reach an account computer, with clearer connection details
-- Account computers can no longer be removed from the phone's device list, preventing accidental removal
-
-## 2.22.0
-
-### zh-Hant
-- 授權卡片在寬螢幕上更精簡，不再撐滿聊天區
-- 用麥克風聽寫時，麥克風按鈕會變成錄音膠囊：停止鍵、錄了多久，還有跟著你說話起伏的點點
-- Bot 工作中會顯示簡潔的動畫、目前動作與經過時間，詳細紀錄可從「完整對話」查看
-- 麥克風旁的向上箭頭可以選聽寫要用裝置內建語音，還是用你自己的 OpenAI 或 Gemini 金鑰
-- iPad 接實體鍵盤時，在輸入框按 Return 會換行，⌘↩ 送出
-- 群組裡被提及的 bot 若正在別的對話忙，群組會顯示它在忙，忙完就回來回答
-- 記憶不會再滿：快滿時，Dreaming 會把細節依主題整理進筆記資料夾，你要 bot 記住的事一定存得下
-
-### en-US
-- Approval cards stay compact on wide screens instead of stretching across the chat
-- While you dictate, the mic turns into a recording pill: a stop button, how long you've been talking, and dots that follow your voice
-- While a bot works, see its activity and elapsed time in a compact animated indicator; details remain in Full conversation
-- The arrow beside the mic picks how dictation hears you: on-device speech, or your own OpenAI or Gemini key
-- On iPad with a hardware keyboard, Return starts a new line in the message box and ⌘↩ sends
-- In a group, a bot you mention that's busy in another chat now says so, and answers once it's done
-- Memory no longer fills up: as it nears its limit, dreaming files the detail into notes by topic, so what you ask a bot to remember always fits
+- While a computer restarts for an update you started from your phone, it shows Updating… instead of asking you for access.
+- Codex bots now get a connector that shares its name with a server in your Codex config, such as Notion, instead of missing its tools.
+- A Codex bot's own messages and memory upkeep no longer show among its working steps.

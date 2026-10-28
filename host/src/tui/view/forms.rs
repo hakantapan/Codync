@@ -5,6 +5,7 @@ use ratatui::layout::{Position, Rect};
 use ratatui::style::{Modifier, Style};
 
 use super::super::app::{App, COLORS, Editor, FIELDS, Field, Form, GroupField, GroupForm, SHAPES, tilde};
+use super::super::l10n::tr;
 use super::super::manage::Page;
 use super::super::md::{truncate, width as w};
 use super::super::sheets::page_tabs;
@@ -60,12 +61,15 @@ pub(super) fn form_view(buf: &mut Buffer, area: Rect, app: &App, f: &Form) {
             Field::Notify => "Notify",
             Field::Computer => "Use computer",
             Field::Team => "Manage team",
+            Field::Network => "Network",
+            Field::Assistants => "Assistants",
             Field::Color => "Color",
             Field::Shape => "Shape",
             Field::Connectors => "Connectors",
             Field::Skills => "Skills",
         };
-        put(buf, fx, y, label_w, lab, if active { t.bold } else { t.secondary }.patch(t.panel));
+        let label = tr(lab);
+        put(buf, fx, y, label_w, &label, if active { t.bold } else { t.secondary }.patch(t.panel));
         let rows = if *field == Field::Instructions { 3 } else { 1 };
         if active {
             restyle(buf, Rect::new(vx.saturating_sub(1), y, vw + 1, rows), t.sel);
@@ -89,7 +93,7 @@ pub(super) fn form_view(buf: &mut Buffer, area: Rect, app: &App, f: &Form) {
         };
         match field {
             Field::Name => {
-                text_field(buf, &f.name, "Name", y);
+                text_field(buf, &f.name, tr("Name").as_ref(), y);
                 if let Some(by) = created_by(app, &f.bot_id)
                     && w(&f.name.text) + w(&by) + 2 < usize::from(vw)
                 {
@@ -97,7 +101,8 @@ pub(super) fn form_view(buf: &mut Buffer, area: Rect, app: &App, f: &Form) {
                 }
             }
             Field::Instructions => {
-                text_field(buf, &f.instructions, "e.g. Reviews PRs. Never pushes without asking.", y);
+                let hint = tr("e.g. Reviews PRs. Never pushes without asking.");
+                text_field(buf, &f.instructions, &hint, y);
             }
             Field::Model => {
                 text_field(buf, &f.model, "default", y);
@@ -129,14 +134,25 @@ pub(super) fn form_view(buf: &mut Buffer, area: Rect, app: &App, f: &Form) {
             Field::ModelOptions => {
                 let offered = app.model_settings(&f.backend, f.model.text.trim());
                 if offered.is_empty() {
-                    put(buf, vx, y, vw, "none for this model", t.dim.patch(base));
+                    let error = app
+                        .models
+                        .get(&f.backend)
+                        .and_then(Option::as_ref)
+                        .and_then(|models| models.iter().find(|m| m.id == f.model.text.trim()))
+                        .and_then(|model| model.options_error.as_deref());
+                    put(buf, vx, y, vw, error.unwrap_or("none for this model"), t.dim.patch(base));
                 }
                 let mut x = vx;
                 for (j, o) in offered.iter().enumerate() {
                     let picked = f.model_options().and_then(|p| p.get(&o.id));
-                    let value = picked.map_or("default", |v| {
-                        o.values.iter().find(|(id, _)| id == v).map_or(v.as_str(), |(_, name)| name.as_str())
-                    });
+                    let chosen = picked.or(o.default.as_ref());
+                    let name = chosen
+                        .map(|v| o.values.iter().find(|(id, _)| id == v).map_or(v.as_str(), |(_, name)| name.as_str()));
+                    let value = match (picked, name) {
+                        (None, Some(name)) => format!("default · {name}"),
+                        (_, Some(name)) => name.to_owned(),
+                        _ => "default".to_owned(),
+                    };
                     let item = format!("{} ‹{value}›", o.name);
                     let s = if active && j == f.sub { t.bold.add_modifier(Modifier::UNDERLINED) } else { t.text };
                     if x + u(w(&item)) >= inner.right() {
@@ -182,7 +198,11 @@ pub(super) fn form_view(buf: &mut Buffer, area: Rect, app: &App, f: &Form) {
                     &format!(
                         "{}  ▸",
                         truncate(
-                            &if f.cwd.is_empty() { "Personal workspace".to_owned() } else { tilde(&f.cwd, &app.home) },
+                            &if f.cwd.is_empty() {
+                                tr("Personal workspace").into_owned()
+                            } else {
+                                tilde(&f.cwd, &app.home)
+                            },
                             usize::from(vw.saturating_sub(4))
                         )
                     ),
@@ -205,6 +225,20 @@ pub(super) fn form_view(buf: &mut Buffer, area: Rect, app: &App, f: &Form) {
                     None => "Needs a newer Codync host",
                 };
                 put(buf, vx, y, vw, s, t.text.patch(base));
+            }
+            Field::Network | Field::Assistants => {
+                let (on, applies, off_here) = if *field == Field::Network {
+                    (f.offered_to_network, app.network["joined"] == true, "this computer isn't in a network")
+                } else {
+                    (f.reachable_by_assistants, app.network["assistants"] == true, "cloud assistants are off here")
+                };
+                let s = match on {
+                    Some(true) => "◉ On   ○ Off",
+                    Some(false) => "○ On   ◉ Off",
+                    None => "Needs a newer Codync host",
+                };
+                let s = if on.is_some() && !applies { format!("{s}  · {}", tr(off_here)) } else { s.into() };
+                put(buf, vx, y, vw, &s, t.text.patch(base));
             }
             Field::Notify => {
                 let s = if f.notify { "◉ Done and needs-you   ○ Off" } else { "○ Done and needs-you   ◉ Off" };
@@ -251,7 +285,9 @@ pub(super) fn form_view(buf: &mut Buffer, area: Rect, app: &App, f: &Form) {
         let refusal = app.bots.get(&f.bot_id).and_then(super::super::app::Bot::fast_refusal);
         let (line, style) = match refusal {
             Some(why) => (why, t.amber),
-            None => ("Faster replies for more usage, on models that offer it (Claude Code, Codex)".to_owned(), t.dim),
+            None => {
+                (tr("Faster replies for more usage, on models that offer it (Claude Code, Codex)").into_owned(), t.dim)
+            }
         };
         put(buf, inner.x, by - 1, inner.width, &line, style.patch(t.panel));
     } else if f.current() == Field::Computer {
@@ -260,21 +296,27 @@ pub(super) fn form_view(buf: &mut Buffer, area: Rect, app: &App, f: &Form) {
             inner.x,
             by - 1,
             inner.width,
-            "Set up on the computer: Codync → Settings → Computer access",
+            &tr("Set up on the computer: Codync → Settings → Computer access"),
             t.dim.patch(t.panel),
         );
     } else if f.current() == Field::Fallbacks {
-        let line = format!(
-            "If {agent_name} runs out of usage or can't answer, the bot carries on with the next one. Chat, memory and workspace carry over."
-        );
+        let line = tr("If {agent} runs out of usage or can't answer, the bot carries on with the next one. Chat, memory and workspace carry over.")
+            .replace("{agent}", &agent_name);
         put(buf, inner.x, by - 1, inner.width, &line, t.dim.patch(t.panel));
     } else if f.current() == Field::SelfFallbacks {
-        let line = "Let the bot change its fallbacks: it can set this list itself, for example when you ask it to.";
-        put(buf, inner.x, by - 1, inner.width, line, t.dim.patch(t.panel));
+        let line = tr("Let the bot change its fallbacks: it can set this list itself, for example when you ask it to.");
+        put(buf, inner.x, by - 1, inner.width, &line, t.dim.patch(t.panel));
     } else if f.current() == Field::Team {
         let line =
             "Let this bot create bots and change any bot's setup, its own included. The bots it creates can too.";
         put(buf, inner.x, by - 1, inner.width, line, t.dim.patch(t.panel));
+    } else if f.current() == Field::Network {
+        let line = tr("Offered to the network: bots on your other computers can see and message this bot.");
+        put(buf, inner.x, by - 1, inner.width, &line, t.dim.patch(t.panel));
+    } else if f.current() == Field::Assistants {
+        let line =
+            tr("Reachable by cloud assistants: ChatGPT or Claude in your Codync account can see and message this bot.");
+        put(buf, inner.x, by - 1, inner.width, &line, t.dim.patch(t.panel));
     }
     let save = if f.saving { " … Saving " } else { " ↵ Save " };
     let x = put(buf, inner.x, by, 14, save, t.btn_primary) + 1;
@@ -294,7 +336,9 @@ pub(super) fn form_view(buf: &mut Buffer, area: Rect, app: &App, f: &Form) {
         | Field::Approvals
         | Field::Notify
         | Field::Computer
-        | Field::Team => "←→ change · tab next field",
+        | Field::Team
+        | Field::Network
+        | Field::Assistants => "←→ change · tab next field",
         Field::Instructions => "⇧↵ new line · tab next field",
         Field::Name => "tab next field · ^s save",
     };
@@ -308,13 +352,14 @@ pub(super) fn group_view(buf: &mut Buffer, area: Rect, app: &App, g: &GroupForm)
     let about = g.group_id.is_some();
     let top = if about { 4 } else { 2 };
     let r = centered(area, 74, u(bots.len() + 8).saturating_add(top).max(16));
-    let title = if about { "Group chat" } else { "New group chat" };
-    let inner = frame_box(buf, r, t.text, t.panel, Some((title, t.text)));
+    let title = tr(if about { "Group chat" } else { "New group chat" });
+    let inner = frame_box(buf, r, t.text, t.panel, Some((title.as_ref(), t.text)));
     let label = |on: bool| if on { t.bold } else { t.secondary }.patch(t.panel);
     let on_bots = g.field == GroupField::Bots;
-    put(buf, inner.x, inner.y, 8, "Name", label(g.field == GroupField::Name));
+    put(buf, inner.x, inner.y, 8, tr("Name").as_ref(), label(g.field == GroupField::Name));
     let default = app.group_default_name(&g.members);
-    let placeholder = if default.is_empty() { "Name your group" } else { default.as_str() };
+    let fallback = tr("Name your group");
+    let placeholder = if default.is_empty() { fallback.as_ref() } else { default.as_str() };
     input_line(
         buf,
         Rect::new(inner.x + 8, inner.y, inner.width.saturating_sub(8), 1),
@@ -340,7 +385,14 @@ pub(super) fn group_view(buf: &mut Buffer, area: Rect, app: &App, g: &GroupForm)
     let list_h = usize::from(inner.height.saturating_sub(top + 5));
     let off = g.cursor.saturating_sub(list_h.saturating_sub(1));
     if bots.is_empty() {
-        put(buf, inner.x, inner.y + top + 1, inner.width, "No bots yet. Create a bot first.", t.dim.patch(t.panel));
+        put(
+            buf,
+            inner.x,
+            inner.y + top + 1,
+            inner.width,
+            tr("No bots yet. Create a bot first.").as_ref(),
+            t.dim.patch(t.panel),
+        );
     }
     for (y, (i, b)) in (inner.y + top + 1..).zip(bots.iter().enumerate().skip(off).take(list_h)) {
         let sel = on_bots && i == g.cursor;
@@ -368,7 +420,7 @@ pub(super) fn group_view(buf: &mut Buffer, area: Rect, app: &App, g: &GroupForm)
             inner.x,
             by - 1,
             inner.width,
-            "Everyone answers in turn unless you @mention someone.",
+            tr("Everyone answers in turn unless you @mention someone.").as_ref(),
             t.dim.patch(t.panel),
         );
     }

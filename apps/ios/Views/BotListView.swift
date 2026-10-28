@@ -16,6 +16,8 @@ struct BotListView: View {
     @State private var confirmDelete: RosterItem?
     /// What the section name dialog names while it's open.
     @State private var naming: SectionNaming?
+    /// A bot whose agent starts over with a fresh context, once confirmed.
+    @State private var confirmNewSession: RosterItem?
     /// The row that's lifted (a `RosterLine` id): a bot to drag or for its menu, or a computer's heading.
     @State private var lifted: String?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -145,11 +147,13 @@ struct BotListView: View {
             .listRowSeparator(.hidden)
             .listRowBackground(Color.clear)
         }
+        .reviewInvitation(blocked: creating != nil || editing != nil || editingGroup != nil
+                          || confirmDelete != nil || confirmNewSession != nil || lifted != nil)
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .environment(\.defaultMinListRowHeight, 0)
         .background(Palette.background)
-        .navigationTitle("Bots")
+        .navigationTitle(L10n.tr("Bots"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)
         .toolbar {
@@ -162,9 +166,9 @@ struct BotListView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 // A native menu: the bar hosts toolbar buttons outside SwiftUI's layout,
                 // so an anchored Codync menu can't find where the button is.
-                Menu("New", systemImage: "plus") {
-                    Button("New bot", systemImage: "plus", action: newBot)
-                    Button("New group chat", systemImage: "person.2", action: newGroup)
+                Menu(L10n.tr("New"), systemImage: "plus") {
+                    Button(L10n.tr("New bot"), systemImage: "plus", action: newBot)
+                    Button(L10n.tr("New group chat"), systemImage: "person.2", action: newGroup)
                         .disabled(onlineStores.isEmpty)
                 }
                 // A computer that needs an update can't take a new bot.
@@ -222,6 +226,14 @@ struct BotListView: View {
             }]
         }
         .sectionNameDialog($naming)
+        .codyncDialog("Start a new session?",
+                      isPresented: Binding(get: { confirmNewSession != nil }, set: { if !$0 { confirmNewSession = nil } }),
+                      message: "The conversation stays here, but the agent starts with a fresh context.") {
+            let item = confirmNewSession
+            return [DialogAction("New session") {
+                if let item { accounts.store(for: item.ref.computerId)?.newSession(item.bot.id) }
+            }]
+        }
     }
 
     /// A row the system's reordering dropped. A heading moves its computer and its bots (an order
@@ -260,7 +272,8 @@ struct BotListView: View {
         return VStack(spacing: 0) {
             // Not synced while it needs an update: "No bots yet" wouldn't be true.
             ComputerSection(store: store, empty: store.mismatch == nil && !roster.contains { $0.ref.computerId == id },
-                            collapsed: folded || collapsedIDs.contains(id), toggle: { toggleCollapsed(id) }, move: move)
+                            collapsed: folded || collapsedIDs.contains(id), toggle: { toggleCollapsed(id) }, move: move,
+                            extensions: store.connection == .online && store.mismatch == nil ? { app.marketplace = id } : nil)
                 .contentShape(Rectangle())
                 .onTapGesture { toggleCollapsed(id) }
             updateCard(store)
@@ -305,21 +318,31 @@ struct BotListView: View {
         .itemProvider { lift(line) }
         .accessibilityLabel(accounts.computers.count > 1 ? "\(bot.name), on \(store.hostName)" : bot.name)
         .accessibilityActions {
-            Button("Move up") { withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { store.move(bot.id, by: -1) } }
-            Button("Move down") { withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { store.move(bot.id, by: 1) } }
+            Button(L10n.tr("Move up")) { withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { store.move(bot.id, by: -1) } }
+            Button(L10n.tr("Move down")) { withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { store.move(bot.id, by: 1) } }
         }
+        // The lead stays on top.
+        .moveDisabled(bot.lead)
         .contextActions {
-            var items = [
-                MenuItem(bot.pinned ? "Unpin" : "Pin", icon: bot.pinned ? "pin.slash" : "pin") { store.setPinned(bot, !bot.pinned) },
+            // The lead is always on top and always there: no pin, section, hide or delete.
+            var items = bot.lead ? [] : [MenuItem(bot.pinned ? "Unpin" : "Pin", icon: bot.pinned ? "pin.slash" : "pin") { store.setPinned(bot, !bot.pinned) }]
+            // Below Pin, like the desktop; an older computer has no sections.
+            if !bot.lead && store.supportsSections { items.append(sectionMenu(bot, store: store)) }
+            if !bot.isGroup {
+                items.append(MenuItem("New session", icon: "arrow.counterclockwise") { confirmNewSession = item })
+            }
+            items += [
                 bot.isGroup
                     ? MenuItem("Edit group", icon: "person.2") { editingGroup = GroupTarget(computerId: item.ref.computerId, group: bot) }
                     : MenuItem("Edit profile", icon: "pencil") { editing = EditTarget(computerId: item.ref.computerId, draft: BotDraft(bot)) },
                 MenuItem("Mark as read", icon: "checkmark.message") { store.markAllRead(bot.id) },
-                MenuItem("Hide from list", icon: "eye.slash") { store.setHidden(bot, true) },
-                MenuItem("Delete", icon: "trash", destructive: true, divider: true) { confirmDelete = item },
             ]
-            // Below Pin, like the desktop; an older computer has no sections.
-            if store.supportsSections { items.insert(sectionMenu(bot, store: store), at: 1) }
+            if !bot.lead {
+                items += [
+                    MenuItem("Hide from list", icon: "eye.slash") { store.setHidden(bot, true) },
+                    MenuItem("Delete", icon: "trash", destructive: true, divider: true) { confirmDelete = item },
+                ]
+            }
             return items
         }
     }
@@ -430,18 +453,18 @@ private struct EmptyRoster: View {
     var body: some View {
         VStack(spacing: 14) {
             CharacterAvatar(shape: "cloud", color: "green", size: 72)
-            Text("No bots yet").font(.title3.weight(.semibold)).foregroundStyle(Palette.text)
-            Text(hasComputer
+            Text(L10n.tr("No bots yet")).font(.title3.weight(.semibold)).foregroundStyle(Palette.text)
+            Text(L10n.tr(hasComputer
                  ? "Create a bot for each kind of work — a reviewer, a fixer, a docs writer — and point it at a project."
-                 : "Ask one of your account's computers for access, or pair one with its code.")
+                 : "Ask one of your account's computers for access, or pair one with its code."))
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondary)
                 .multilineTextAlignment(.center)
             if canCreate {
-                Button("Create your first bot", action: create)
+                Button(L10n.tr("Create your first bot"), action: create)
                     .buttonStyle(.primary)
             } else if !hasComputer {
-                Button("Computers", action: showComputers)
+                Button(L10n.tr("Computers"), action: showComputers)
                     .buttonStyle(.primary)
             }
         }

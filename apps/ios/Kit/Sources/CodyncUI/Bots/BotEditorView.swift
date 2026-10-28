@@ -104,44 +104,21 @@ struct BotSettingsForm: View {
             CardSection("Instructions") { instructions }
             CardSection("Agent") {
                 fallbackBanner
-                agentPicker
                 modelPicker
                 fallbackList
             }
             .animation(Motion.reduced(Motion.layout, reduceMotion), value: bot?.agentStep)
             if let error {
-                Text(error).font(.footnote).foregroundStyle(Palette.danger)
+                Text(L10n.tr(error)).font(.footnote).foregroundStyle(Palette.danger)
             }
         }
     }
 
     private var instructions: some View {
         Field("Standing instructions", detail: "Rules that always apply. Put task-specific requests in the chat instead.") {
-            TextField("e.g. Reviews PRs. Never pushes without asking.", text: $draft.description, axis: .vertical)
+            TextField(L10n.tr("e.g. Reviews PRs. Never pushes without asking."), text: $draft.description, axis: .vertical)
                 .lineLimit(3...8)
                 .fieldBox()
-        }
-    }
-
-    private var agentPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            ValueRow("Agent", detail: bot?.rest(of: draft.backend)?.line) {
-                ChoicePicker(selection: Binding(get: { draft.backend }, set: { agent in
-                                 withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { draft.setAgent(agent) }
-                             }),
-                             options: (model.hello?.backends ?? []).map { ($0.id, model.agentLabel($0)) } + [("custom", "Custom command")],
-                             image: { AgentIcon.image(registry: model.agentRegistry($0)) })
-            }
-            if let b = model.hello?.backends.first(where: { $0.id == draft.backend }), !b.available {
-                Text(b.installHint).font(.caption).foregroundStyle(Palette.warning)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            if draft.backend == "custom" {
-                TextField("ACP command, e.g. my-agent --acp", text: Binding(get: { draft.command ?? "" }, set: { draft.command = $0.isEmpty ? nil : $0 }))
-                    .font(.callout.monospaced())
-                    .plainTextInput()
-                    .fieldBox()
-            }
         }
     }
 
@@ -149,7 +126,11 @@ struct BotSettingsForm: View {
         AgentModelPicker(backend: draft.backend, selection: $draft.model, options: $draft.modelOptions,
                          fastMode: Binding(get: { draft.fastMode ?? false }, set: { on in
                              withAnimation(Motion.reduced(Motion.fade, reduceMotion)) { draft.fastMode = on }
-                         }), bot: bot)
+                         }), bot: bot,
+                         agents: (model.hello?.backends ?? []).map { ($0.id, model.agentLabel($0)) } + [("custom", "Custom command")],
+                         onAgentChange: { draft.setAgent($0) }, command: $draft.command,
+                         installHint: model.hello?.backends.first { $0.id == draft.backend && !$0.available }?.installHint,
+                         restLine: bot?.rest(of: draft.backend)?.line)
     }
 
     /// While the bot runs on a fallback: which, and Switch back.
@@ -203,8 +184,7 @@ struct BotSettingsForm: View {
                     Text(model.hostName).lineLimit(1)
                 }
                 if part == .all {
-                    agentPicker
-                    modelPicker
+                        modelPicker
                     fallbackList
                 }
                 ValueRow("Workspace", detail: draft.cwd.isEmpty
@@ -221,7 +201,7 @@ struct BotSettingsForm: View {
                         ]
                     } label: {
                         HStack(spacing: 6) {
-                            Text(draft.cwd.isEmpty ? "Personal" : (draft.cwd as NSString).lastPathComponent).lineLimit(1)
+                            Text(draft.cwd.isEmpty ? L10n.tr("Personal") : (draft.cwd as NSString).lastPathComponent).lineLimit(1)
                             Image(systemName: "chevron.down").font(.caption2.weight(.semibold)).foregroundStyle(Palette.secondary)
                         }
                         .foregroundStyle(Palette.text)
@@ -255,6 +235,15 @@ struct BotSettingsForm: View {
                     SwitchRow("Manage the team", detail: "Let this bot create bots and change any bot's setup, its own included. The bots it creates can too.",
                               isOn: Binding(get: { draft.manageTeam ?? false }, set: { draft.manageTeam = $0 }))
                 }
+                // Each only where it applies: the computer is in a network, cloud assistants are on.
+                if draft.offeredToNetwork != nil, model.network?.joined == true {
+                    SwitchRow("Offered to the network", detail: "Bots on your other computers can see and message this bot.",
+                              isOn: Binding(get: { draft.offeredToNetwork ?? true }, set: { draft.offeredToNetwork = $0 }))
+                }
+                if draft.reachableByAssistants != nil, model.network?.assistants == true {
+                    SwitchRow("Reachable by cloud assistants", detail: "ChatGPT or Claude in your Codync account can see and message this bot.",
+                              isOn: Binding(get: { draft.reachableByAssistants ?? true }, set: { draft.reachableByAssistants = $0 }))
+                }
             }
 
             PluginToggles(
@@ -271,7 +260,7 @@ struct BotSettingsForm: View {
                 info: { id in viewingSkill = model.installedSkills.first { $0.id == id }.map(SkillRef.init) }
             )
             if let error {
-                Text(error).font(.footnote).foregroundStyle(Palette.danger)
+                Text(L10n.tr(error)).font(.footnote).foregroundStyle(Palette.danger)
             }
         }
     }
@@ -293,9 +282,9 @@ struct Field<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(label).foregroundStyle(Palette.text)
+                Text(L10n.tr(label)).foregroundStyle(Palette.text)
                 if let detail {
-                    Text(detail).font(.caption).foregroundStyle(Palette.secondary).lineSpacing(2)
+                    Text(L10n.tr(detail)).font(.caption).foregroundStyle(Palette.secondary).lineSpacing(2)
                         .lineLimit(noteLines)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -321,9 +310,9 @@ struct SwitchRow: View {
     var body: some View {
         Toggle(isOn: $isOn) {
             VStack(alignment: .leading, spacing: 3) {
-                Text(title).foregroundStyle(Palette.text)
+                Text(L10n.tr(title)).foregroundStyle(Palette.text)
                 if let detail {
-                    Text(detail).font(.caption).foregroundStyle(Palette.secondary).lineSpacing(2)
+                    Text(L10n.tr(detail)).font(.caption).foregroundStyle(Palette.secondary).lineSpacing(2)
                         .lineLimit(noteLines)
                         .fixedSize(horizontal: false, vertical: true)
                 }

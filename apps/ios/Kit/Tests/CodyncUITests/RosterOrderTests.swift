@@ -27,12 +27,19 @@ import Testing
     #expect(order() == ["p", "a", "c", "b"])
     store.reorder(["c", "p", "a", "b"]) // Dropped above a pinned bot: still listed below it.
     #expect(order() == ["p", "c", "a", "b"])
+    // The lead goes above everything, pinned bots too, and nothing moves above it.
+    store.bots["l"] = try JSONDecoder().decode(Bot.self, from: Data(#"{"id":"l","lead":true,"lastAt":0}"#.utf8))
+    #expect(order() == ["l", "p", "c", "a", "b"])
+    store.move("p", by: -1)
+    #expect(order() == ["l", "p", "c", "a", "b"])
+    store.reorder(["p", "c", "l", "a", "b"])
+    #expect(order().first == "l")
 }
 
 /// A bot as the host sends it.
-private func rosterBot(_ id: String, pinned: Bool = false, hidden: Bool = false, section: String? = nil, unread: Int = 0,
-                       lastAt: Int = 0) throws -> Bot {
-    var json: [String: Any] = ["id": id, "pinned": pinned, "hidden": hidden, "unread": unread, "lastAt": lastAt]
+private func rosterBot(_ id: String, pinned: Bool = false, lead: Bool = false, hidden: Bool = false, section: String? = nil,
+                       unread: Int = 0, lastAt: Int = 0) throws -> Bot {
+    var json: [String: Any] = ["id": id, "pinned": pinned, "lead": lead, "hidden": hidden, "unread": unread, "lastAt": lastAt]
     if let section { json["section"] = section }
     return try JSONDecoder().decode(Bot.self, from: JSONSerialization.data(withJSONObject: json))
 }
@@ -76,6 +83,24 @@ private func rosterBot(_ id: String, pinned: Bool = false, hidden: Bool = false,
     #expect(RosterSection.lines([roster[0], roster[2]], folded: []) { $0 }.count == 2)
     // The label needs a bot in no section too.
     #expect(RosterSection.lines([roster[1]], folded: []) { $0 }.count == 2)
+}
+
+@MainActor @Test func theLeadStaysOnTopOutsideItsSection() throws {
+    let (store, done) = try rosterStore([
+        rosterBot("l", lead: true, section: "Work"), rosterBot("p", pinned: true, lastAt: 3),
+        rosterBot("w", section: "Work", lastAt: 2), rosterBot("x", lastAt: 1),
+    ])
+    defer { done() }
+    let lines = RosterSection.lines(store.roster, folded: []) { $0 }.map { line in
+        switch line {
+        case let .header(section): "▾ \(section.name) \(section.count)"
+        case .label: "BOTS"
+        case let .bot(bot): bot.id
+        }
+    }
+    #expect(lines == ["l", "p", "▾ Work 1", "w", "BOTS", "x"])
+    let lead = try #require(store.bots["l"]), p = try #require(store.bots["p"]), w = try #require(store.bots["w"])
+    #expect(!lead.isRosterPeer(of: p) && !lead.isRosterPeer(of: w))
 }
 
 @Test func typedSectionNamesAreTrimmedAndCappedLikeTheHost() {

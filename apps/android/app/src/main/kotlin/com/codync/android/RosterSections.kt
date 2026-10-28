@@ -28,13 +28,16 @@ internal sealed interface RosterLine {
     }
 }
 
+/** The lead and pinned bots stay on top, outside sections. */
+internal val Bot.staysOnTop get() = lead || pinned
+
 /**
- * The sorted [roster] as it shows: pinned bots, then each section by name (its header, then its bots
- * in roster order unless it's [folded]), then bots without a section, under [RosterLine.Label] when
- * there are sections. A pinned bot shows only among the pinned.
+ * The sorted [roster] as it shows: the lead and pinned bots, then each section by name (its header,
+ * then its bots in roster order unless it's [folded]), then bots without a section, under
+ * [RosterLine.Label] when there are sections. The lead and a pinned bot show only on top.
  */
 internal fun rosterLines(roster: List<Bot>, folded: Set<String>): List<RosterLine> = buildList {
-    val (pinned, unpinned) = roster.partition(Bot::pinned)
+    val (pinned, unpinned) = roster.partition { it.staysOnTop }
     val sections = unpinned.groupBy(Bot::section)
     pinned.forEach { add(RosterLine.Row(it)) }
     val names = sectionNames(unpinned)

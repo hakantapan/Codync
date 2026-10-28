@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { groupFastMode } from '@shared/fast-mode'
+import { artifactDraftKey, artifactQuote, type Artifact } from '@shared/artifacts'
 import { isGroup, isWorkingIn, quoteOf, type Bot, type Entry } from '@shared/models'
 import { BotAvatar } from '../../components/Avatar'
 import { Icon } from '../../components/Icon'
@@ -9,6 +10,7 @@ import { usePresence } from '../../components/Overlay'
 import { HStack, VStack } from '../../components/Stack'
 import { Text } from '../../components/Text'
 import { useModel } from '../../lib/observable'
+import { useTr } from '../../lib/use-language'
 import { useStore } from '../../store/context'
 import { MAX_FILE_SIZE, type OutgoingFile } from '../../store/bot-store'
 import { pluginsFor } from '../marketplace/plugins'
@@ -26,11 +28,13 @@ type Trailing = 'interrupt' | 'stop' | 'call' | 'send'
 /**
  * The message box under a chat: send, or stop while the bot (or the group) is working there. A leading `/` lists
  * the commands (a group's are its bots'); in a group, typing `@` suggests its bots. While `reply` is set, the
- * message it quotes sits at the top of the box and goes out with the next send.
+ * message it quotes sits at the top of the box and goes out with the next send. Under an artifact, `about` is the
+ * artifact: the box keeps a draft of its own, and every message replies to the artifact's card.
  */
-export function Composer({ botId, reply = null, cancelReply, onCall, onInterrupt }: {
+export function Composer({ botId, reply = null, about = null, cancelReply, onCall, onInterrupt }: {
   botId: string
   reply?: Entry | null
+  about?: Artifact | null
   cancelReply?: () => void
   /** Starts a voice call; while the box is empty it takes the send button's place. */
   onCall?: (() => void) | null
@@ -39,21 +43,23 @@ export function Composer({ botId, reply = null, cancelReply, onCall, onInterrupt
 }) {
   const store = useStore()
   // Remount transient editor state (selection, attachments, IME) when its destination changes.
-  return <DestinationComposer key={JSON.stringify([store.contextId, store.computer.id, botId])}
-    botId={botId} reply={reply} cancelReply={cancelReply} onCall={onCall} onInterrupt={onInterrupt} />
+  return <DestinationComposer key={JSON.stringify([store.contextId, store.computer.id, botId, about?.id])}
+    botId={botId} reply={reply} about={about} cancelReply={cancelReply} onCall={onCall} onInterrupt={onInterrupt} />
 }
 
-function DestinationComposer({ botId, reply, cancelReply, onCall, onInterrupt }: {
-  botId: string; reply: Entry | null; cancelReply?: () => void; onCall?: (() => void) | null; onInterrupt?: (() => void) | null
+function DestinationComposer({ botId, reply, about, cancelReply, onCall, onInterrupt }: {
+  botId: string; reply: Entry | null; about: Artifact | null; cancelReply?: () => void; onCall?: (() => void) | null; onInterrupt?: (() => void) | null
 }) {
   const store = useStore()
+  const tr = useTr()
   const plugins = useModel(pluginsFor(store))
   const bot = store.bots.get(botId) ?? null
   const drafts = store.composerDrafts
-  const draft = useSyncExternalStore(drafts.subscribe, () => drafts.get(botId))
-  const setDraft = (text: string) => drafts.set(botId, text)
+  const draftKey = about ? artifactDraftKey(about) : botId
+  const draft = useSyncExternalStore(drafts.subscribe, () => drafts.get(draftKey))
+  const setDraft = (text: string) => drafts.set(draftKey, text)
   const [files, setFiles] = useState<OutgoingFile[]>([])
-  const dictation = useDictation((change) => drafts.set(botId, change(drafts.get(botId))))
+  const dictation = useDictation((change) => drafts.set(draftKey, change(drafts.get(draftKey))))
   const field = useRef<HTMLTextAreaElement>(null)
   const measure = useRef<HTMLDivElement>(null)
   const composing = useRef(false)
@@ -66,10 +72,19 @@ function DestinationComposer({ botId, reply, cancelReply, onCall, onInterrupt }:
 
   const members = bot && isGroup(bot) ? store.members(bot) : []
 
-  const placeholder = reply ? 'Reply…' : bot && isGroup(bot) ? 'Ask everyone · @ to ask one bot' : working ? `Queue a message for ${bot?.name ?? ''}` : `Ask ${bot?.name ?? ''}`
+  const name = bot?.name ?? ''
+  const placeholder = about
+    ? tr('Message about “{title}”').replace('{title}', about.title)
+    : reply
+    ? tr('Reply…')
+    : bot && isGroup(bot)
+      ? tr('Ask everyone · @ to ask one bot')
+      : working
+        ? tr('Queue a message for {name}').replace('{name}', name)
+        : tr('Ask {name}').replace('{name}', name)
 
-  // A routine's "Try it" fills the box.
-  const routineDraft = store.routineDrafts.get(botId)
+  // A routine's "Try it" fills the chat's box (an artifact's leaves it for the chat).
+  const routineDraft = about ? undefined : store.routineDrafts.get(botId)
   useEffect(() => {
     if (routineDraft === undefined) return
     const incoming = store.consumeRoutineDraft(botId)
@@ -164,7 +179,7 @@ function DestinationComposer({ botId, reply, cancelReply, onCall, onInterrupt }:
     // Words still on their way would land in the emptied box (and the shortcut's tap would send them again).
     dictation.cancel()
     if (command) return run(command)
-    store.send(draft, botId, { files, pasted: pasted.current, replyTo: reply && quoteOf(reply) })
+    store.send(draft, botId, { files, pasted: pasted.current, replyTo: reply ? quoteOf(reply) : about && artifactQuote(about) })
     cancelReply?.()
     pasted.current = []
     setDraft('')

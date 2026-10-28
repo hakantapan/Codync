@@ -16,6 +16,7 @@ import { refKey, sameRef, parseRef } from '../store/app-model'
 import type { BotStore } from '../store/bot-store'
 import { useComputerRoster } from '../store/computer-roster'
 import { BotRoster } from './BotRoster'
+import { ExtensionsMovedTip } from './ExtensionsMovedTip'
 import { SidebarFooter } from './SidebarFooter'
 import { UpdateBadge } from './UpdateButton'
 import { ComputerFilterHeader, computerSelection } from './ComputerFilterHeader'
@@ -32,6 +33,7 @@ import { ComputerAccessView } from './computer-access/ComputerAccessView'
 import { HostStateView } from './HostStateView'
 import { StartupRecovery } from './StartupRecovery'
 export { EmptyState } from './HostStateView'
+import { RefreshIndicator } from './RefreshIndicator'
 import { StarPrompt } from './StarPrompt'
 import { OpenVoiceSettings } from './call/CallView'
 import { AccountPanelLayer, DesktopActionMenu, ProfileAvatar, type ActionItem } from './PanelMenus'
@@ -42,14 +44,18 @@ import { useIslandSummary } from './island-summary'
 import { useSSH, useSSHAttachments } from './settings/ssh-model'
 import './chat-window.css'
 import './sidebar-header.css'
+import { useTr } from '../lib/use-language'
+
 
 /** Native desktop chat: roster on the left, the conversation on the right (Grok Bot's desktop layout). */
 export function ChatWindow() {
+  const tr = useTr()
   const app = useApp()
   const [onboarded, setOnboarded] = usePref(prefs.onboardingDone)
   const [accessSetup, setAccessSetup] = usePref(prefs.computerAccessSetup)
   const [showAccess, setShowAccess] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [upToDate, setUpToDate] = useState(false)
   useSSHAttachments(app)
   const ssh = useSSH()
   const showsChat = shouldShowChat(app.host.state.kind, app.computers.length, ssh.state)
@@ -66,6 +72,8 @@ export function ChatWindow() {
             return setShowAccess(true)
           case 'confirmReset':
             return setConfirmReset(true)
+          case 'upToDate':
+            return setUpToDate(true)
           case 'reviewApprovals':
             return app.reviewApprovals()
           case 'setTextSize':
@@ -85,7 +93,7 @@ export function ChatWindow() {
             return
           }
           case 'refresh':
-            return app.refresh()
+            return void app.refresh()
           case 'setRemoteScreen':
             void app.setRemoteScreen(c.on)
             return
@@ -110,6 +118,7 @@ export function ChatWindow() {
   return (
     <div className="chat-window">
       <Summaries />
+      <RefreshIndicator />
       {onboarded ? (
         accessSetup === null ? (
           <ComputerAccessView onContinue={(ready) => finishAccess(ready, true)} />
@@ -129,15 +138,23 @@ export function ChatWindow() {
       {onboarded && accessSetup !== null && showsChat ? null : <div className="window-drag drag" />}
       {onboarded && accessSetup !== null ? <StarPrompt /> : null}
       <Sheet open={showAccess} onClose={() => setShowAccess(false)} width={660} height={Math.min(820, window.innerHeight - 80)}>
-        <ModalHeader icon="hand.raised" title="Computer access" />
+        <ModalHeader icon="hand.raised" title={tr(`Computer access`)} />
         <ComputerAccessView onContinue={(ready) => { finishAccess(ready, false); setShowAccess(false) }} />
       </Sheet>
       <Dialog
         open={confirmReset}
-        title="Reset all data?"
-        message="Signs out every account and deletes this computer's bots, conversations, keys and settings. Codync then starts over from the welcome screen."
+        title={tr('Reset all data?')}
+        message={tr("Signs out every account and deletes this computer's bots, conversations, keys and settings. Codync then starts over from the welcome screen.")}
         actions={[{ title: 'Reset everything', destructive: true, action: () => void window.codync.app.resetAllData() }]}
         onClose={() => setConfirmReset(false)}
+      />
+      <Dialog
+        open={upToDate}
+        title={tr("You're up to date")}
+        message={tr('Codync {version} is currently the newest version available.').replaceAll('{version}', window.codync.appVersion)}
+        actions={[]}
+        cancel="OK"
+        onClose={() => setUpToDate(false)}
       />
       {/* Approving a device: the code the device shows must match (spec §4.2 B). Closing puts it off. */}
       <Sheet open={approval !== null} onClose={() => approval && app.deferApproval(approval)}>
@@ -173,6 +190,7 @@ interface CreateTarget {
 }
 
 function ChatSplitView() {
+  const tr = useTr()
   const app = useApp()
   const ssh = useSSH()
   const connecting = ssh.state.profiles.some((p) => isSSHConnecting(ssh.status(p.id))) || [...app.stores.values()].some((s) => s.shownConnection.kind === 'connecting')
@@ -230,6 +248,7 @@ function ChatSplitView() {
       window.codync.app.onCommand((c) => {
         if (c.kind === 'newBot' && onlineStores.length) create('bot')
         if (c.kind === 'search') setSearching(true)
+        if (c.kind === 'networkSettings') setSettings('network')
         if (c.kind === 'toggleSidebar') setCompact(!prefs.sidebarCompact.get())
         if (c.kind === 'voiceKey') {
           // No chat open: talk to the top bot in the sidebar.
@@ -270,15 +289,18 @@ function ChatSplitView() {
 
   const openMarketplace = () => setMarketplace((selectedStore ?? app.local ?? onlineStores[0])?.computer.id ?? null)
 
+  // The lead stays on top and can't go: no pin, section, hide or delete.
   const botActions = (bot: Bot, store: BotStore): ActionItem[] => [
-    { title: bot.pinned ? 'Unpin' : 'Pin', icon: 'pin', action: () => store.setPinned(bot, !bot.pinned) },
+    ...(bot.lead ? [] : [{ title: bot.pinned ? 'Unpin' : 'Pin', icon: 'pin', action: () => store.setPinned(bot, !bot.pinned) }]),
     ...moveToSectionItems(bot, store, setNaming),
     { title: 'Mark as Read', icon: 'bell.badge', action: () => store.markAllRead(bot.id) },
     { title: 'Edit Profile…', icon: 'square.and.pencil', divider: true, action: () => setEditing({ id: crypto.randomUUID(), draft: draftOf(bot), store }) },
     { title: 'Copy conversation ID', icon: 'square.on.square', divider: true, action: () => window.codync.app.copy(bot.id) },
     { title: 'New session', icon: 'arrow.counterclockwise', action: () => setNewSessionBot({ bot, store }) },
-    { title: 'Hide from sidebar', icon: 'eye.slash', divider: true, action: () => store.setHidden(bot, true) },
-    { title: 'Delete', icon: 'trash', destructive: true, action: () => setConfirmDelete({ bot, store }) },
+    ...(bot.lead ? [] : [
+      { title: 'Hide from sidebar', icon: 'eye.slash', divider: true, action: () => store.setHidden(bot, true) },
+      { title: 'Delete', icon: 'trash', destructive: true, action: () => setConfirmDelete({ bot, store }) },
+    ]),
   ]
 
   // ↑/↓ in the roster move the selection; Alt+↑/↓ moves the selected bot itself.
@@ -330,8 +352,8 @@ function ChatSplitView() {
           <CharacterAvatar shape="squircle" color="orange" size={60} />
           <CharacterAvatar shape="teardrop" color="violet" size={60} mood="working" />
         </HStack>
-        <Text as="div" size="title2" weight="semibold">{connecting ? 'Connecting to your computers…' : 'Your coding agents, as teammates.'}</Text>
-        <Text as="div" tone="secondary" className="empty-detail-message">{connecting ? 'Your bots will appear once connected. Manage computers to see connection progress.' : 'Pick a bot, or create one for each kind of work and point it at a project.'}</Text>
+        <Text as="div" size="title2" weight="semibold">{connecting ? tr(`Connecting to your computers…`) : tr(`Your coding agents, as teammates.`)}</Text>
+        <Text as="div" tone="secondary" className="empty-detail-message">{connecting ? tr(`Your bots will appear once connected. Manage computers to see connection progress.`) : tr(`Pick a bot, or create one for each kind of work and point it at a project.`)}</Text>
         <Button onClick={() => create('bot')} disabled={!onlineStores.length}>
           New bot
         </Button>
@@ -360,16 +382,22 @@ function ChatSplitView() {
           </div>
         ) : null}
         <div className="roster" ref={listRef} tabIndex={0} onKeyDown={onListKey}>
+          {roster.grouped && !compact ? <ExtensionsMovedTip /> : null}
           <BotRoster roster={roster} compact={compact}
             onContext={(bot, store, x, y) => setContext({ items: botActions(bot, store), x, y })}
             onSectionContext={(section, store, x, y) => {
               const items = sectionHeaderItems(section, store, setNaming, (to) => roster.renameSection(store, section, to))
               if (items.length) setContext({ items, x, y })
+            }}
+            openExtensions={(id) => {
+              // Found it: the tip about where Extensions went has done its job.
+              prefs.extensionsMovedTipSeen.set(true)
+              setMarketplace(id)
             }} />
           {visibleRoster.length === 0 && !roster.grouped && !compact && mismatchStores.length === 0 ? (
             <div className="roster-empty">
-              <Text as="div" size="body" weight="medium">{onlineStores.length ? 'No bots yet' : 'Waiting for a computer'}</Text>
-              {onlineStores.length ? <Text as="div" size="callout" tone="secondary">Use + to create a bot.</Text> : null}
+              <Text as="div" size="body" weight="medium">{onlineStores.length ? tr(`No bots yet`) : tr(`Waiting for a computer`)}</Text>
+              {onlineStores.length ? <Text as="div" size="callout" tone="secondary">{tr(`Use + to create a bot.`)}</Text> : null}
             </div>
           ) : null}
         </div>
@@ -385,7 +413,8 @@ function ChatSplitView() {
             </button>
           </div>
         ) : (
-          <SidebarFooter accountOpen={showAccount} onAccount={() => setShowAccount((s) => !s)} onExtensions={openMarketplace} />
+          // With several computers each heading opens its own Extensions instead.
+          <SidebarFooter accountOpen={showAccount} onAccount={() => setShowAccount((s) => !s)} onExtensions={roster.grouped ? undefined : openMarketplace} />
         )}
       </aside>
       <ResizeHandle label="Resize sidebar" width={width} min={76} max={sidebarMax} edge="trailing" onResize={resizeSidebar} onDragging={setResizing} />
@@ -439,29 +468,29 @@ function ChatSplitView() {
       <Sheet open={marketplace !== null} onClose={() => setMarketplace(null)} width={Math.min(920, windowSize.width - 80)} height={sheetHeight} dismissOnDim>
         {marketplace && app.store(marketplace) ? (
           <StoreContext.Provider value={app.store(marketplace)!}>
-            <MarketplaceView key={marketplace} computers={onlineStores.map((s) => ({ id: s.computer.id, name: s.hostName }))} computer={marketplace} onComputer={setMarketplace} />
+            <MarketplaceView key={marketplace} />
           </StoreContext.Provider>
         ) : null}
       </Sheet>
       <Sheet open={settings !== null} onClose={() => setSettings(null)} width={Math.min(800, windowSize.width - 80)} height={Math.min(620, sheetHeight)}>
-        {settings ? <SettingsView page={settings} /> : null}
+        {settings ? <SettingsView page={settings} setPage={setSettings} /> : null}
       </Sheet>
       <Dialog
         open={newSessionBot !== null}
-        title="Start a new session?"
-        message="The conversation stays here, but the agent starts with a fresh context."
+        title={tr('Start a new session?')}
+        message={tr('The conversation stays here, but the agent starts with a fresh context.')}
         actions={newSessionBot ? [{ title: 'New session', action: () => newSessionBot.store.newSession(newSessionBot.bot.id) }] : []}
         onClose={() => setNewSessionBot(null)}
       />
       <Dialog
         open={confirmDelete !== null}
         title={`Delete ${confirmDelete?.bot.name ?? 'bot'}?`}
-        message="Files it changed on your computer stay as they are."
+        message={tr('Files it changed on your computer stay as they are.')}
         actions={confirmDelete ? [{ title: 'Delete bot and its conversation', destructive: true, action: () => confirmDelete.store.delete(confirmDelete.bot) }] : []}
         onClose={() => setConfirmDelete(null)}
       />
       <SectionNameDialog naming={naming} onClose={() => setNaming(null)} />
-      <Dialog open={errorMessage !== null} title="Something went wrong" message={errorMessage} actions={[]} cancel="OK" onClose={() => app.clearErrors()} />
+      <Dialog open={errorMessage !== null} title={tr('Something went wrong')} message={errorMessage} actions={[]} cancel="OK" onClose={() => app.clearErrors()} />
     </div>
   )
 }

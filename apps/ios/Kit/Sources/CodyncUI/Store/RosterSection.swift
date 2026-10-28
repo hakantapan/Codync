@@ -46,15 +46,15 @@ public struct RosterSection: Sendable {
         return names
     }
 
-    /// A computer's roster (in `BotStore.roster` order) as the rows on screen: pinned bots, then
-    /// each section by name with its bots (none while folded), then the bots in no section, under
-    /// the "Bots" label when there are sections. A pinned bot shows only on top, whatever its
-    /// section; every part keeps the roster's order.
+    /// A computer's roster (in `BotStore.roster` order) as the rows on screen: the lead and pinned
+    /// bots, then each section by name with its bots (none while folded), then the bots in no
+    /// section, under the "Bots" label when there are sections. The lead and a pinned bot show only
+    /// on top, whatever their section; every part keeps the roster's order.
     public static func lines<Item>(_ roster: [Item], folded: Set<String>, bot: (Item) -> Bot) -> [RosterSectionLine<Item>] {
         var pinned: [Item] = [], loose: [Item] = [], bySection: [String: [Item]] = [:]
         for item in roster {
             let placed = bot(item)
-            if placed.pinned {
+            if placed.staysOnTop {
                 pinned.append(item)
             } else if let name = placed.section {
                 bySection[name, default: []].append(item)
@@ -83,9 +83,13 @@ public enum RosterSectionLine<Item> {
 }
 
 extension Bot {
-    /// Whether the user can drag this bot past `other`: pinned bots share the top whatever their
-    /// sections; the rest move within their own section, or among the bots in none.
+    /// The lead and pinned bots stay on top, outside sections.
+    var staysOnTop: Bool { lead || pinned }
+
+    /// Whether the user can drag this bot past `other`: the same `band`, where pinned bots share
+    /// the top whatever their sections; the rest move within their own section, or among the bots
+    /// in none.
     func isRosterPeer(of other: Bot) -> Bool {
-        pinned == other.pinned && (pinned || section == other.section)
+        band == other.band && (staysOnTop || section == other.section)
     }
 }

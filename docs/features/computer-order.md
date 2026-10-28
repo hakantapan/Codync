@@ -31,7 +31,8 @@ the order. The computer moves with its bots: while the heading is lifted, every 
 bots fold into their headings (rows kept at no height, so the system's drag keeps its place),
 and they unfold under their computers when it's dropped. Cancelling a drag leaves the saved order unchanged. A tap folds or expands
 the section; Move up/down accessibility actions are also available. The desktop
-app supports heading drags and Alt+Up/Down on macOS, Linux and Windows.
+app drags headings the same way (the sections fold while one is lifted, and the others make
+room as it passes them) and supports Alt+Up/Down, on macOS, Linux and Windows.
 The terminal UI connects to one host, so it has no cross-computer ordering.
 
 The order never leaves the device: the cloud stores no computer order.
@@ -40,20 +41,23 @@ The order never leaves the device: the cloud stores no computer order.
 
 A computer's bots (and group chats) keep the order the user drags them into, on every
 device: the host stores it as each bot's `position` (`reorderBots`, `host/src/hub/order.rs`)
-and syncs it like any bot change. Pinned bots stay above the rest, and a bot moves only
-among bots with the same pin state; an unpinned bot also stays in its section (pinned rows
-show no sections, so pinned bots reorder among all pinned bots). Until a computer's bots are
-first arranged, every position is 0 and they sort by recent activity; after that they stay put
-and a new bot appears on top. Hidden bots keep their position for when they return.
+and syncs it like any bot change. Every client sorts in bands: the [lead bot](lead-bot.md)
+first (it can't be dragged, and nothing drops above it), then pinned bots, then the rest;
+a bot moves only within its band, and an unpinned bot also stays in its section (the lead and
+pinned rows show no sections, so pinned bots reorder among all pinned bots). Until a computer's
+bots are first arranged, every position is 0 and they sort by recent activity; after that they
+stay put and a new bot appears at the top of its band. Hidden bots keep their position for when
+they return.
 
 A bot or group chat can be in one section, a name the user picks (`section`, set with `updateBot`;
 `renameSection` renames, merges into another section's name, or removes one; `host/src/hub/sections.rs`).
 The host trims the name, treats an empty one as none, and refuses one over 40 characters or with a
-control character. The roster shows pinned rows first, then each section under its header sorted by
-name (the way the device's language sorts; the terminal UI sets case and accents aside but has no
-per-language rules, so Swedish "å" sorts as "a" there), then rows in no section (under a "Bots"
+control character. The roster shows the lead and pinned rows first, then each section under its header
+sorted by name (the way the device's language sorts; the terminal UI sets case and accents aside but
+has no per-language rules, so Swedish "å" sorts as "a" there), then rows in no section (under a "Bots"
 label when there are sections); inside a section rows keep the order above. A section exists while
-a bot is in it. A pinned bot keeps its section and shows in it again once unpinned; hidden bots keep
+a bot is in it. The lead stays on top, outside sections, and its menus offer no Move to section. A
+pinned bot keeps its section and shows in it again once unpinned; hidden bots keep
 theirs. Each device folds sections for itself, by name: renaming or removing a folded section on
 this device takes its fold along (a merge folds the section it joins; an unfolded section changes
 nothing), while a rename made on another device arrives unfolded.

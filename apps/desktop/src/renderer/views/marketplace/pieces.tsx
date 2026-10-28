@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { IconButton } from '../../components/Controls'
 import { Sheet, usePresence } from '../../components/Overlay'
 import { Icon } from '../../components/Icon'
 import { HStack, Spacer, VStack } from '../../components/Stack'
 import { Text } from '../../components/Text'
+import { useTr } from '../../lib/use-language'
+import { EXTENSION_SECTIONS, type ExtensionSection } from './market-models'
 import { ThinkingOrb } from '../../components/ThinkingOrb'
 import './marketplace.css'
+import './extensions-layout.css'
 
 // Building blocks the Marketplace's screens share (kit MarketplaceView.swift "Pieces").
 
@@ -34,6 +37,8 @@ export function MarketRow({ title, subtitle, added, busy = false, addLabel = 'Ad
   /** The whole row opens the item's details; without it the row does what its button does. */
   onOpen?: () => void
 }) {
+  const tr = useTr()
+  const addedLabel = tr('Added')
   return (
     <ItemRow
       title={title}
@@ -45,7 +50,7 @@ export function MarketRow({ title, subtitle, added, busy = false, addLabel = 'Ad
           <ThinkingOrb size={18} color="var(--secondary)" />
         </HStack>
       ) : added ? (
-        <HStack as="span" align="stretch" justify="center" className="market-row-status market-row-added" aria-label="Added" title="Added">
+        <HStack as="span" align="stretch" justify="center" className="market-row-status market-row-added" aria-label={addedLabel} title={addedLabel}>
           <Icon name="checkmark" size={11} weight="semibold" />
         </HStack>
       ) : (
@@ -56,7 +61,7 @@ export function MarketRow({ title, subtitle, added, busy = false, addLabel = 'Ad
             onAdd()
           }}
         >
-          {addLabel}
+          {tr(addLabel)}
         </button>
       )}
     />
@@ -97,17 +102,49 @@ export function ItemRow({ title, subtitle, icon, trailing, onOpen }: {
 
 /** Placeholder rows while a list loads, shaped like the real ones. */
 export function SkeletonGrid() {
+  const tr = useTr()
   return (
-    <div className="item-grid skeleton">
-      {[0, 1, 2, 3].map((i) => (
-        <HStack key={i} gap={14} className="skeleton-row">
-          <div className="skeleton-icon" />
-          <VStack gap={8}>
-            <div className="skeleton-title" />
-            <div className="skeleton-subtitle" />
-          </VStack>
+    <VStack gap={8} aria-busy="true" aria-label={tr('Loading…')}>
+      <Text size="footnote" tone="secondary">{tr('Loading…')}</Text>
+      <div className="item-grid skeleton">
+        {[0, 1, 2, 3].map((i) => (
+          <HStack key={i} gap={14} className="skeleton-row">
+            <div className="skeleton-icon" />
+            <VStack gap={8}>
+              <div className="skeleton-title" />
+              <div className="skeleton-subtitle" />
+            </VStack>
+          </HStack>
+        ))}
+      </div>
+    </VStack>
+  )
+}
+
+/**
+ * The end of a list the registry continues (kit `LoadMoreRow`). In view, it asks for the page at
+ * `cursor`, and again each time the cursor moves on while it stays in view. After a failure it shows
+ * Try again, and asks again once it scrolls back into view.
+ */
+export function LoadMoreRow({ cursor, failed, onLoad }: { cursor: string; failed: boolean; onLoad: () => void }) {
+  const end = useRef<HTMLDivElement>(null)
+  const [inView, setInView] = useState(false)
+  const load = useEffectEvent(onLoad)
+  useEffect(() => {
+    const seen = new IntersectionObserver(([e]) => setInView(e!.isIntersecting))
+    seen.observe(end.current!)
+    return () => seen.disconnect()
+  }, [])
+  useEffect(() => {
+    if (inView) load()
+  }, [inView, cursor])
+  return (
+    <div ref={end} className="load-more">
+      {failed ? (
+        <HStack justify="center">
+          <IconButton title="Try again" icon="arrow.clockwise" onClick={onLoad} />
         </HStack>
-      ))}
+      ) : <SkeletonGrid />}
     </div>
   )
 }
@@ -189,18 +226,20 @@ export function SkillGlyph() {
 
 /** Text that opens a web page (replaces the system `Link`). */
 export function WebLink({ title, url, className }: { title: string; url: string; className?: string }) {
+  const tr = useTr()
   return (
     <button className={`plain-link${className ? ` ${className}` : ''}`} title={url} onClick={() => window.codync.app.openExternal(url)}>
-      {title}
+      {tr(title)}
     </button>
   )
 }
 
 /** A full screen's top bar (kit `ScreenHeader`): back on the leading side, centered title, trailing. */
 export function ScreenHeader({ title, onBack, trailing }: { title: string; onBack: () => void; trailing?: ReactNode }) {
+  const tr = useTr()
   return (
     <HStack gap={6} className="market-screen-header">
-      <Text as="div" size="compactBody" weight="semibold" tone="text" truncate className="market-screen-title">{title}</Text>
+      <Text as="div" size="compactBody" weight="semibold" tone="text" truncate className="market-screen-title">{tr(title)}</Text>
       <IconButton title="Back" icon="chevron.left" onClick={onBack} />
       <Spacer min={8} />
       {trailing}
@@ -235,14 +274,17 @@ export function Field({ value, onChange, placeholder, secret = false, lines, mon
   mono?: boolean
   label?: string
 }) {
+  const tr = useTr()
+  const hint = placeholder ? tr(placeholder) : undefined
+  const named = label ? tr(label) : hint
   const className = `market-field${mono ? ' mono' : ''}`
   if (lines) {
     return (
       <textarea
         className={className}
-        aria-label={label ?? placeholder}
+        aria-label={named}
         value={value}
-        placeholder={placeholder}
+        placeholder={hint}
         spellCheck={false}
         onChange={(e) => onChange(e.target.value)}
         style={{ minHeight: `${lines[0] * 1.3}em`, maxHeight: `${lines[1] * 1.3}em` }}
@@ -252,10 +294,10 @@ export function Field({ value, onChange, placeholder, secret = false, lines, mon
   return (
     <input
       className={className}
-      aria-label={label ?? placeholder}
+      aria-label={named}
       type={secret ? 'password' : 'text'}
       value={value}
-      placeholder={placeholder}
+      placeholder={hint}
       spellCheck={false}
       autoComplete="off"
       onChange={(e) => onChange(e.target.value)}
@@ -280,6 +322,23 @@ export function useWindowHeight() {
     return () => window.removeEventListener('resize', onResize)
   }, [])
   return height
+}
+
+/** Agents, Connectors, Skills: a row of filled chips over the list, the chosen one in the text color. */
+export function ExtensionTabs({ selection, onChange }: { selection: ExtensionSection; onChange: (id: ExtensionSection) => void }) {
+  const tr = useTr()
+  return (
+    <nav className="market-tabs" role="tablist" aria-label={tr('Extensions sections')}>
+      {EXTENSION_SECTIONS.map((section) => {
+        const on = section.id === selection
+        return (
+          <button key={section.id} type="button" role="tab" aria-selected={on} className={`market-tab${on ? ' on' : ''}`} onClick={() => onChange(section.id)}>
+            {tr(section.label)}
+          </button>
+        )
+      })}
+    </nav>
+  )
 }
 
 /**

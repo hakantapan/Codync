@@ -10,15 +10,14 @@ public struct ThreadView: View {
 
     public init(botId: String) { self.botId = botId }
     @Environment(BotStore.self) var model
-    @Environment(\.dismiss) var dismiss
     @State var showTrace = false
     /// The message the composer's next send quotes.
     @State var replyingTo: Entry?
     @State var botChat: BotChatTarget?
+    @State var openArtifact: ArtifactTarget?
+    @State var openCall: Entry?
     @State var editingGroup = false
     @State var details: DetailsRequest?
-    @State var confirmNewSession = false
-    @State var confirmDelete: Bot?
     @State var calling = false
     @State var callSpeaking = false
     @State var interruptCall: (() -> Void)?
@@ -66,27 +65,40 @@ public struct ThreadView: View {
     var conversation: some View {
         chrome(chat)
             .readingConversation(botId)
-            .codyncSheet(item: Binding<FileDownloads.Export?>(get: {
-                guard let item = model.fileDownloads.export, item.botId == botId else { return nil }
-                return item
-            }, set: { if $0 == nil { model.fileDownloads.dismissExport() } })) { item in
-                FileExportSheet(url: item.url) { model.fileDownloads.dismissExport() }
+            .reviewReading(botId: botId, unobscured: following && !calling && !showTrace && botChat == nil
+                           && openArtifact == nil && openCall == nil && details == nil && !editingGroup
+                           && model.composerDraft(for: botId).isEmpty && model.fileDownloads.export == nil)
+            .onChange(of: model.voiceCallRequest, initial: true) { _, _ in
+                if model.takeVoiceCallRequest(for: botId) { startShortcutCall() }
             }
+            // The details sheet's Library presents its own downloads.
+            .fileExportSheet(model, botId: botId, active: details == nil)
             .codyncSheet(isPresented: $showTrace) {
                 TraceView(botId: botId)
             }
             .codyncSheet(item: $botChat) { BotConversationView(botId: botId, peerId: $0.id) }
+            .codyncSheet(item: $openArtifact) { ArtifactView(target: $0) }
+            .codyncSheet(item: $openCall) { CallConversationView(line: $0) }
             .codyncSheet(item: $details) { request in
-                BotDetailsView(botId: request.botId ?? botId, request: request)
+                BotDetailsView(botId: request.botId ?? botId, request: request) { artifact in
+                    details = nil
+                    openArtifact = artifact
+                }
             }
             .codyncSheet(isPresented: $editingGroup) {
                 if let bot { GroupEditorView(group: bot) }
             }
-            .codyncDialog("Start a new session?", isPresented: $confirmNewSession,
-                          message: "The conversation stays here, but the agent starts with a fresh context.") {
-                [DialogAction("New session") { model.newSession(botId) }]
-            }
-            .deleteBotConfirmation($confirmDelete) { dismiss() }
+    }
+
+    /// Open Live Mode from Shortcuts: closes whatever covers the chat, then starts the call.
+    private func startShortcutCall() {
+        showTrace = false
+        botChat = nil
+        openArtifact = nil
+        editingGroup = false
+        details = nil
+        if model.fileDownloads.export?.botId == botId { model.fileDownloads.dismissExport() }
+        withAnimation(Motion.reduced(Motion.layout, reduceMotion)) { calling = true }
     }
 
     // MARK: rows
@@ -105,7 +117,9 @@ public struct ThreadView: View {
                         // An update card takes the composer's place, so there's nothing to reply with.
                         reply: e.isReplyable && model.mismatch == nil ? { reply(to: e) } : nil,
                         // In a group, the bot whose agent failed.
-                        addFallback: { details = DetailsRequest(botId: e.data.author ?? e.botId) })
+                        addFallback: { details = DetailsRequest(botId: e.data.author ?? e.botId) },
+                        openArtifact: { openArtifact = ArtifactTarget(botId: e.botId, id: $0.id, title: $0.title) },
+                        openCall: { openCall = e })
                     .equatable()
             }
         }
@@ -128,15 +142,15 @@ public struct ThreadView: View {
             }
             .frame(width: 12)
             .accessibilityHidden(true)
-            Text(model.connectionLabel)
+            Text(L10n.tr(model.connectionLabel))
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
         .font(.system(size: 10, weight: .medium))
         .foregroundStyle(Palette.secondary)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(model.hostName), \(connectionDescription)")
-        .help("\(model.hostName) · \(connectionDescription)")
+        .accessibilityLabel("\(model.hostName), \(L10n.tr(connectionDescription))")
+        .help("\(model.hostName) · \(L10n.tr(connectionDescription))")
     }
 
     private var connectionSymbol: String {
@@ -158,7 +172,7 @@ public struct ThreadView: View {
         }
         if model.mismatch != nil { return "Needs update" }
         switch model.hostRoute {
-        case .relay: return "Connected through Cloudflare"
+        case .relay: return RelayCopy.connected(cloud: model.computer.cloud)
         case .direct: return "Connected over Wi-Fi or Tailscale"
         case nil: return "Connected"
         }
@@ -177,30 +191,10 @@ public struct ThreadView: View {
         }
     }
 
-    func openRoutine(_ id: String?) {
+    func openRoutine(_ id: String) {
         withAnimation(Motion.reduced(Motion.layout, reduceMotion)) {
             details = DetailsRequest(tab: .details, routineId: id)
         }
-    }
-
-    var menuItems: [MenuItem] {
-        var items = [MenuItem("Full conversation", icon: "list.bullet.rectangle") { showTrace = true }]
-        if let bot, bot.isGroup {
-            items.append(MenuItem("Edit group", icon: "person.2") { editingGroup = true })
-            items.append(MenuItem(bot.pinned ? "Unpin" : "Pin", icon: "pin") { model.setPinned(bot, !bot.pinned) })
-            items.append(MenuItem("Delete group", icon: "trash", destructive: true, divider: true) { confirmDelete = bot })
-            return items
-        }
-        if let bot {
-            items.append(MenuItem("Settings", icon: "gearshape") { openSettings() })
-            items.append(MenuItem(bot.pinned ? "Unpin" : "Pin", icon: "pin") { model.setPinned(bot, !bot.pinned) })
-        }
-        items.append(MenuItem("Routines", icon: "clock.arrow.circlepath") {
-            openRoutine(nil)
-        })
-        items.append(MenuItem("New session", icon: "arrow.counterclockwise") { confirmNewSession = true })
-        items.append(MenuItem("Delete bot", icon: "trash", destructive: true, divider: true) { confirmDelete = bot })
-        return items
     }
 }
 
@@ -276,7 +270,7 @@ struct GroupIntroCard: View {
                     .foregroundStyle(Palette.secondary)
                     .multilineTextAlignment(.center)
             }
-            Text("Everyone answers in turn. @mention a bot to ask just that one.")
+            Text(L10n.tr("Everyone answers in turn. @mention a bot to ask just that one."))
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondary)
                 .multilineTextAlignment(.center)
@@ -295,7 +289,11 @@ struct IntroCard: View {
         VStack(spacing: 12) {
             CharacterAvatar(bot: bot, size: 72)
             Text(bot.name).font(.title2.weight(.semibold)).foregroundStyle(Palette.text)
-            Text(bot.managedWorkspace ? "\(model.backendName(bot.backend)) · Personal workspace" : "\(model.backendName(bot.backend)) in \(bot.cwd)")
+            Text(bot.managedWorkspace
+                 ? "\(model.backendName(bot.backend)) · \(L10n.tr("Personal workspace"))"
+                 : L10n.tr("{agent} in {path}")
+                    .replacingOccurrences(of: "{agent}", with: model.backendName(bot.backend))
+                    .replacingOccurrences(of: "{path}", with: bot.cwd))
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondary)
                 .multilineTextAlignment(.center)
@@ -305,7 +303,7 @@ struct IntroCard: View {
                     .foregroundStyle(Palette.secondary)
                     .multilineTextAlignment(.center)
             }
-            Text("Tell it what you need. You'll get a notification when it's done or needs you.")
+            Text(L10n.tr("Tell it what you need. You'll get a notification when it's done or needs you."))
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondary)
                 .multilineTextAlignment(.center)
@@ -328,7 +326,8 @@ extension ThreadView {
     /// scrolls up; the chat follows the newest message until they scroll away, and a reply is
     /// revealed steadily as it's written.
     var transcript: some View {
-        let items = ChatItem.build(model.chat(botId))
+        // What voice calls carried shows in each call's conversation, not in the chat.
+        let items = ChatItem.build(model.chat(botId).hidingCalls())
         var rows: [ConversationRow] = []
         if moreOnComputer {
             rows.append(ConversationRow("earlier") {
@@ -349,7 +348,8 @@ extension ThreadView {
         // Offline, "working" is only what the computer last said; don't show it as live.
         if let bot, working {
             rows.append(ConversationRow("working") {
-                WorkingIndicator(bot: bot)
+                // Each turn starts folded.
+                WorkingIndicator(bot: bot, steps: Entry.workingSteps(model.chat(botId)))
                     .id(bot.startedAt)
                     .padding(.top, 6)
             })
@@ -375,7 +375,7 @@ extension ThreadView {
         }
     }
 
-    /// The system navigation bar: the title pill holds the bot's actions; the corner is the computer.
+    /// The system navigation bar: the title opens the bot's details; the corner is the computer.
     func chrome(_ content: some View) -> some View {
         content
             .navigationBarTitleDisplayMode(.inline)
@@ -393,21 +393,10 @@ extension ThreadView {
             }
     }
 
+    /// Like Grok Bot: the bot at the top opens its details (a group's editor for a group).
     var header: some View {
-        // Like Grok Bot: the title pill holds the bot's actions; the corner is the computer.
-        Menu {
-            Text("\(model.hostName) · \(model.connectionLabel)")
-            Button("Reconnect", systemImage: "arrow.clockwise") { model.restartStream() }
-            Divider()
-            Button("Details", systemImage: "info.circle", action: openDetails)
-            ForEach(menuItems) { item in
-                if item.divider { Divider() }
-                systemMenuRow(item)
-            }
-        } label: {
-            title
-        }
-        .accessibilityLabel("\(bot?.name ?? "Conversation") actions")
+        Button(action: openDetails) { title }
+            .accessibilityLabel(L10n.tr("{name}, view details").replacingOccurrences(of: "{name}", with: bot?.name ?? ""))
     }
 
     private func openDetails() {
@@ -417,13 +406,9 @@ extension ThreadView {
     /// Opens the computer's screen; pulses while this bot is operating it (watch, then take over).
     private var computerButton: some View {
         let operating = model.screen?.agentBot == botId
-        return Button("Computer", systemImage: "desktopcomputer") {
+        return Button(L10n.tr("Computer"), systemImage: "desktopcomputer") {
             model.screenRequest = operating ? ScreenRequest(watching: botId) : ScreenRequest()
         }
         .symbolEffect(.pulse, options: .repeating, isActive: operating)
-    }
-
-    func openSettings() {
-        details = DetailsRequest(tab: .settings)
     }
 }

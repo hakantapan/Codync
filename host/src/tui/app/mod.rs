@@ -1,6 +1,7 @@
 //! TUI state and everything that changes it: host events, keys, mouse, replies.
 
 mod analytics;
+mod bot;
 mod editor;
 mod events;
 mod exchange;
@@ -13,19 +14,23 @@ mod new_bot;
 mod overlay_keys;
 mod roster;
 mod slash;
+mod steps;
 mod ui;
 
+pub use bot::{AgentModel, Bot, ModelOption, OwnMemory};
 pub use editor::Editor;
 pub use exchange::{ConversationRow, Exchange, Item, Outcome, conversation, group, rows};
-pub use model::{After, AgentModel, Bot, Entry, Kind, Mark, ModelOption, Msg, Status};
+pub use model::{After, Entry, Kind, Mark, Msg, Status};
 pub use roster::{RosterLine, cursor_line, rename_fold, roster_lines, stops};
 pub use slash::SlashAction;
+pub(super) use steps::{running_turn, working_steps};
 pub use ui::{
     ACTIONS, Action, COLORS, Click, Confirm, ConfirmAct, Dir, FIELDS, FILTERS, Field, Focus, FolderPicker, Form, Goto,
     GotoItem, GroupField, GroupForm, Hits, NewBot, NewBotField, Overlay, PairCode, SHAPES, Toast, Toggle, TraceMode,
     Width,
 };
 
+use crate::tui::l10n::tr;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::Write as _;
@@ -60,6 +65,8 @@ pub struct App {
     pub entries: HashMap<String, BTreeMap<i64, Entry>>,
     pub usage: Value,
     pub screen: Value,
+    /// This computer's network (`networkView`'s shape); null on hosts without one.
+    pub network: Value,
     pub backends: Vec<Value>,
     pub selected: Option<String>,
     pub focus: Focus,
@@ -75,6 +82,8 @@ pub struct App {
     /// What was pasted into each draft, sent along so memory never takes it as the user's own words.
     pub pasted: HashMap<String, Vec<String>>,
     pub download: Option<super::net::files::Download>,
+    /// Each artifact's newest title, for its cards.
+    pub artifact_titles: super::manage::ArtifactTitles,
     sends: HashMap<String, PendingSend>,
     /// Lines scrolled up from the bottom of the chat (0 = follow new messages).
     pub chat_scroll: usize,
@@ -82,6 +91,8 @@ pub struct App {
     pub trace: TraceMode,
     /// Turn shown in the trace; `None` follows the latest.
     pub trace_turn: Option<i64>,
+    /// The bot and turn whose working steps are unfolded.
+    pub steps_open: Option<(String, i64)>,
     pub compact: bool,
     pub overlays: Vec<Overlay>,
     pub toasts: Vec<Toast>,
@@ -101,6 +112,8 @@ pub struct App {
     pub unfolded: HashSet<String>,
     /// Roster sections showing their label alone (`z`); this run only.
     pub folded: HashSet<String>,
+    /// Voice calls' own messages, by call id (`callEntries`): the chat loaded here may not reach back to them.
+    pub call_entries: HashMap<String, Vec<Entry>>,
     pub market: (Vec<Toggle>, Vec<Toggle>),
     /// Installed connectors and skills as the host lists them.
     pub plugins: (Vec<Value>, Vec<Value>),
@@ -132,6 +145,7 @@ impl App {
     pub fn new(client: Client, tx: UnboundedSender<Msg>, url: String) -> Self {
         Self {
             download: None,
+            artifact_titles: super::manage::ArtifactTitles::default(),
             client,
             tx,
             url,
@@ -145,6 +159,7 @@ impl App {
             entries: HashMap::new(),
             usage: Value::Null,
             screen: Value::Null,
+            network: Value::Null,
             backends: vec![],
             selected: None,
             focus: Focus::Roster,
@@ -159,6 +174,7 @@ impl App {
             trace_scroll: 0,
             trace: TraceMode::Off,
             trace_turn: None,
+            steps_open: None,
             compact: false,
             overlays: vec![],
             toasts: vec![],
@@ -173,6 +189,7 @@ impl App {
             pick: None,
             unfolded: HashSet::new(),
             folded: HashSet::new(),
+            call_entries: HashMap::new(),
             market: (vec![], vec![]),
             plugins: (vec![], vec![]),
             models: HashMap::new(),
@@ -217,6 +234,10 @@ impl App {
     /// A chat's entries, in display order.
     pub fn lane(&self, bot: &str) -> Vec<&Entry> {
         let mut v: Vec<&Entry> = self.entries.get(bot).map(|m| m.values().collect()).unwrap_or_default();
+        // What a voice call carries shows behind its line (`o`), on whichever device the call is: the host writes the
+        // line when the call ends, or when its app went away. A file or an artifact the bot sent stays, to be opened.
+        let opens = |e: &Entry| e.artifact().is_some() || e.data["files"].as_array().is_some_and(|f| !f.is_empty());
+        v.retain(|e| e.kind == Kind::Notice || e.call().is_none() || opens(e));
         // A message sent mid-turn belongs after that turn's reply.
         v.sort_by_key(|e| (e.turn, e.seq));
         v
@@ -313,7 +334,7 @@ impl App {
     }
 
     pub fn flash(&mut self, s: &str) {
-        self.hint = Some((s.to_owned(), Instant::now() + Duration::from_secs(3)));
+        self.hint = Some((tr(s).into_owned(), Instant::now() + Duration::from_secs(3)));
     }
 
     fn toast(&mut self, text: String, need: bool) {
@@ -442,52 +463,10 @@ pub fn tilde(path: &str, home: &str) -> String {
 }
 
 #[cfg(test)]
-fn test_app() -> App {
+pub(in crate::tui) fn test_app() -> App {
     let (tx, _) = tokio::sync::mpsc::unbounded_channel();
     App::new(Client::new("http://127.0.0.1:1", None), tx, String::new())
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn fuzzy_is_a_subsequence_match() {
-        assert!(fuzzy("rx", &["Rex"]));
-        assert!(fuzzy("", &["anything"]));
-        assert!(!fuzzy("xr", &["Rex"]));
-        assert!(fuzzy("web", &["Rex", "~/mycode/web"]));
-    }
-
-    #[tokio::test]
-    async fn the_chat_on_screen_is_marked_read() {
-        let mut app = test_app();
-        let bot = Bot::parse(&json!({"id": "b", "name": "Bot", "unread": 2})).expect("a bot with an id parses");
-        app.bots.insert("b".into(), bot);
-        app.selected = Some("b".into());
-        (app.width, app.term_focused) = (Width::Wide, true);
-        app.tick();
-        assert!(app.reading.contains("b"));
-    }
-
-    #[tokio::test]
-    async fn r_on_a_picked_message_replies_to_it() {
-        let mut app = test_app();
-        app.bots.insert("b".into(), Bot::parse(&json!({"id": "b", "name": "Bot"})).expect("a bot with an id parses"));
-        app.selected = Some("b".into());
-        for (seq, kind) in [(1, "user"), (2, "agent")] {
-            let v = json!({"botId": "b", "id": format!("e{seq}"), "seq": seq, "turn": 1, "kind": kind,
-                "data": {"text": "hi", "final": true}});
-            let (bot, e) = Entry::parse(&v).expect("a full entry parses");
-            app.entries.entry(bot).or_default().insert(e.seq, e);
-        }
-        app.step_pick(0);
-        assert_eq!(app.pick.as_deref(), Some("e2"), "a fresh pick is the newest message");
-        app.step_pick(-1);
-        let r = crossterm::event::KeyEvent::from(crossterm::event::KeyCode::Char('r'));
-        assert!(app.pick_key(r));
-        assert_eq!(app.reply.as_deref(), Some("e1"));
-        assert_eq!(app.replying_to().map(Entry::quoted).as_deref(), Some("hi"));
-        assert!(app.typing && app.pick.is_none());
-    }
-}
+mod tests;

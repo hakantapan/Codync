@@ -68,6 +68,7 @@ import kotlinx.serialization.json.putJsonArray
         folded = foldsAfterRename(folded, from, to)
         FoldedSections.save(context, folded)
     }
+    var confirmNewSession by remember { mutableStateOf<Bot?>(null) }
     val roster = roster(state.bots)
     val sections = menuSections(state.bots)
     val reorder = remember { RosterReorder() }
@@ -89,7 +90,7 @@ import kotlinx.serialization.json.putJsonArray
         PullToRefresh({ store.reconnect(); store.refreshComputers() }, Modifier.fillMaxSize(), indicatorTop = top + 50.dp) {
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = top + 56.dp, bottom = bottomInset)) {
             // A computer waiting for an update has its card instead; its bots may not be readable yet.
-            state.mismatch?.let { mismatch -> item("update") { UpdateNeededCard(state, mismatch, Modifier.padding(vertical = 8.dp)) } }
+            state.mismatch?.let { mismatch -> item("update") { UpdateNeededCard(state, mismatch, store::requestHostUpdate, Modifier.padding(vertical = 8.dp)) } }
             if (roster.isEmpty() && state.mismatch == null) item {
                 EmptyRoster(canCreate = usable, hasComputer = usable, create = newBot, showComputers = manage)
             }
@@ -110,13 +111,19 @@ import kotlinx.serialization.json.putJsonArray
                             .then(if (lifted) Modifier.zIndex(1f).graphicsLayer { translationY = reorder.offset; scaleX = 1.02f; scaleY = 1.02f }
                                 else Modifier.animateItem())) {
                             BotRowItem(bot, state, store, reorder.handle(bot.id) { store.reorder(it) }, sections, edit = { edit(bot) },
-                                delete = { confirmDelete = bot }, newSection = { naming = SectionNaming.New(bot.id) })
+                                newSession = { confirmNewSession = bot }, delete = { confirmDelete = bot },
+                                newSection = { naming = SectionNaming.New(bot.id) })
                         }
                     }
                 }
             }
         }
         }
+    }
+    val restarting = confirmNewSession
+    CodyncDialog("Start a new session?", restarting != null, { confirmNewSession = null },
+        message = "The conversation stays here, but the agent starts with a fresh context.") {
+        listOf(DialogAction("New session") { restarting?.let { store.command("newSession", body("botId" to it.id)) } })
     }
     val deleting = confirmDelete
     CodyncDialog("Delete ${deleting?.name ?: "bot"}?", deleting != null, { confirmDelete = null },
@@ -168,13 +175,14 @@ private class RosterReorder {
     }
 }
 
-/** Roster order: pinned first, then where the user dragged them, then most recent activity. */
+/** Roster order: the lead, then pinned bots, then where the user dragged them, then most recent activity. */
 internal fun roster(bots: List<Bot>): List<Bot> = bots.filter { !it.deleted && !it.hidden }
-    .sortedWith(compareByDescending<Bot> { it.pinned }.thenBy { it.position }.thenByDescending { it.lastAt })
+    .sortedWith(compareBy<Bot> { it.band }.thenBy { it.position }.thenByDescending { it.lastAt })
 
 /**
  * The roster order with a bot swapped with the next bot up (-1) or down (+1) that shows beside it, or null when there's none:
- * pinned bots move among all the pinned, the others among bots of their section (or of none), skipping the bots between.
+ * a bot stays in its band (`Bot.band`: the lead, pinned bots, the rest); pinned bots move among all the pinned, the others
+ * among bots of their section (or of none), skipping the bots between.
  */
 internal fun moved(roster: List<Bot>, id: String, offset: Int): List<String>? {
     val at = roster.indexOfFirst { it.id == id }
@@ -184,27 +192,30 @@ internal fun moved(roster: List<Bot>, id: String, offset: Int): List<String>? {
     return roster.map(Bot::id).toMutableList().apply { this[at] = roster[next].id; this[next] = id }
 }
 
-private fun Bot.movesWith(other: Bot) = pinned == other.pinned && (pinned || section == other.section)
+private fun Bot.movesWith(other: Bot) = band == other.band && (staysOnTop || section == other.section)
 
 @Composable private fun BotRowItem(bot: Bot, state: AppState, store: AppStore, drag: ContextDrag, sections: List<String>, edit: () -> Unit,
-    delete: () -> Unit, newSection: () -> Unit) {
-    Box(Modifier.fillMaxWidth().contextActions(onClick = { store.openBot(bot.id) }, reorder = drag, preview = {
+    newSession: () -> Unit, delete: () -> Unit, newSection: () -> Unit) {
+    // The lead stays on top and in the list: no drag, pin, section, hide or delete.
+    Box(Modifier.fillMaxWidth().contextActions(onClick = { store.openBot(bot.id) }, reorder = drag.takeUnless { bot.lead }, preview = {
         Box(Modifier.padding(horizontal = 8.dp)) { BotRow(bot, state) }
     }) {
         listOfNotNull(
             MenuItem(if (bot.pinned) "Unpin" else "Pin", icon = if (bot.pinned) "pin.slash" else "pin") {
                 store.command("updateBot", buildJsonObject { put("id", bot.id); put("pinned", !bot.pinned) }, "roster:" + bot.id)
-            },
-            if (state.supportsSections) sectionMenu(bot, sections, store, newSection) else null,
+            }.takeUnless { bot.lead },
+            if (state.supportsSections && !bot.lead) sectionMenu(bot, sections, store, newSection) else null,
             if (bot.kind == "group") MenuItem("Edit group", icon = "person.2", action = edit)
             else MenuItem("Edit profile", icon = "pencil", action = edit),
             MenuItem("Mark as read", icon = "checkmark.message") {
                 store.command("markRead", buildJsonObject { put("botId", bot.id) }, "roster:" + bot.id)
             },
+            // A group has no agent session of its own.
+            MenuItem("New session", icon = "arrow.counterclockwise", action = newSession).takeIf { bot.kind != "group" },
             MenuItem("Hide from list", icon = "eye.slash") {
                 store.command("updateBot", buildJsonObject { put("id", bot.id); put("hidden", true) }, "roster:" + bot.id)
-            },
-            MenuItem("Delete", icon = "trash", destructive = true, divider = true, action = delete),
+            }.takeUnless { bot.lead },
+            MenuItem("Delete", icon = "trash", destructive = true, divider = true, action = delete).takeUnless { bot.lead },
         )
     }.semantics {
         contentDescription = bot.name
@@ -225,12 +236,12 @@ private fun Bot.movesWith(other: Bot) = pinned == other.pinned && (pinned || sec
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (bot.pinned) Symbol("pin.fill", size = 13.dp, tint = Palette.tertiary)
+                    if (bot.pinned && !bot.lead) Symbol("pin.fill", size = 13.dp, tint = Palette.tertiary)
                     Text(bot.name, Modifier.weight(1f, fill = false), style = Type.body.semibold, color = Palette.text, maxLines = 1,
                         overflow = TextOverflow.Ellipsis)
                 }
                 Spacer(Modifier.width(8.dp))
-                if (bot.lastAt > 0) Text(RelativeTime.day(bot.lastAt), style = Type.subheadline,
+                if (bot.lastAt > 0) Text(RelativeTime.day(bot.lastAt, yesterday = tr("Yesterday")), style = Type.subheadline,
                     color = if (bot.unread > 0) Palette.text else Palette.tertiary, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -254,16 +265,16 @@ private fun Bot.movesWith(other: Bot) = pinned == other.pinned && (pinned || sec
     when {
         bot.status == "needsInput" -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             ThinkingOrb(ThinkingOrbState.Listening, 16.dp, Palette.warning)
-            Text(bot.activity.ifEmpty { "Needs your approval" }, style = Type.subheadline, color = Palette.warning, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(tr(bot.activity.ifEmpty { "Needs your approval" }), style = Type.subheadline, color = Palette.warning, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         bot.status == "working" -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             ThinkingOrb(size = 13.dp, color = Palette.secondary)
-            Text(bot.activity.ifEmpty { "Working…" }, style = Type.subheadline, color = Palette.secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(tr(bot.activity.ifEmpty { "Working…" }), style = Type.subheadline, color = Palette.secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         bot.status == "error" -> Text(messagePreview(bot.lastMessage ?: "Something went wrong"), style = Type.subheadline, color = Palette.danger,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
         else -> Text(messagePreview(bot.lastMessage ?: if (bot.kind == "group") "${bot.members.size} bots"
-            else "${backendName(state, bot.backend)} · ${if (bot.managedWorkspace) "Personal workspace" else bot.cwd.trimEnd('/').substringAfterLast('/')}"),
+            else "${backendName(state, bot.backend)} · ${if (bot.managedWorkspace) tr("Personal workspace") else bot.cwd.trimEnd('/').substringAfterLast('/')}"),
             style = Type.subheadline, color = Palette.secondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

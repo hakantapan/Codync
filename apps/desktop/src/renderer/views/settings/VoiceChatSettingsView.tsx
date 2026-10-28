@@ -1,7 +1,7 @@
-import { onDeviceUnavailableReason } from '../call/voice'
+import { onDeviceUnavailableReason, voiceSettingsClosed } from '../call/voice'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { HostClient } from '../../client/host-client'
-import { Button, CardForm, CardSection, ChoicePicker, IconButton, Spinner, ValueRow } from '../../components/Controls'
+import { Button, CardForm, CardSection, ChoicePicker, IconButton, Reveal, Spinner, ValueRow } from '../../components/Controls'
 import { Icon } from '../../components/Icon'
 import { ModalHeader, SheetPage } from '../../components/Overlay'
 import { HStack, Spacer, VStack } from '../../components/Stack'
@@ -9,9 +9,11 @@ import { Text } from '../../components/Text'
 import { usePref } from '../../lib/prefs'
 import { useStore } from '../../store/context'
 import { useScreenViewed } from '../../store/analytics'
-import { errorText, liveClient, Reveal } from './parts'
+import { errorText, liveClient } from './parts'
 import * as voice from './voice-settings'
 import type { VoiceModels, VoiceProvider } from './voice-settings'
+import { useTr } from '../../lib/use-language'
+
 
 /**
  * Voice chat settings: which voice carries calls (on-device speech, or OpenAI / Gemini on the
@@ -19,6 +21,7 @@ import type { VoiceModels, VoiceProvider } from './voice-settings'
  * in `StoreContext`. `showsHeader` is false inside Settings, which titles the page itself.
  */
 export function VoiceChatSettingsView({ showsHeader = true }: { showsHeader?: boolean }) {
+  const tr = useTr()
   useScreenViewed('voice_settings')
   const [engine, setEngine] = usePref(voice.engine)
   const [rate, setRate] = usePref(voice.rate)
@@ -29,14 +32,16 @@ export function VoiceChatSettingsView({ showsHeader = true }: { showsHeader?: bo
   /** Dictation on another provider than calls still needs that provider's key and speech-to-text model. */
   const dictationProvider = voice.isVoiceProvider(dictationEngine) && dictationEngine !== provider ? dictationEngine : null
   const [mode, setMode] = usePref(voice.mode(provider ?? 'openai'))
+  // Closing hands a running call to a different engine picked here.
+  useEffect(() => () => voiceSettingsClosed.ring(), [])
   const footer = provider
-    ? `Your own ${voice.voiceInfo[provider].name} key, billed by ${voice.voiceInfo[provider].name}. Applies from the next call.`
+    ? `Your own ${voice.voiceInfo[provider].name} key, billed by ${voice.voiceInfo[provider].name}. During a call, applies when you close settings.`
     : window.codync.speech.available
-      ? 'On-device speech, on this computer. Applies from the next call.'
+      ? 'On-device speech, on this computer. During a call, applies when you close settings.'
       : onDeviceUnavailableReason()
   return (
     <SheetPage className={showsHeader ? 'settings-voice-sheet' : undefined}>
-      {showsHeader ? <ModalHeader icon="waveform" title="Voice chat" /> : null}
+      {showsHeader ? <ModalHeader icon="waveform" title={tr(`Voice chat`)} /> : null}
       <div className="settings-voice-body">
         <CardForm>
           <CardSection title="Voice" footer={footer}>
@@ -92,6 +97,7 @@ function PauseRow() {
 
 /** One provider: the key the computer keeps, models, voice and this month's minutes. `dictationOnly` keeps the key and speech-to-text model. */
 function ProviderVoiceSettings({ provider, dictationOnly = false }: { provider: VoiceProvider; dictationOnly?: boolean }) {
+  const tr = useTr()
   const store = useStore()
   const info = voice.voiceInfo[provider]
   const [mode] = usePref(voice.mode(provider))
@@ -219,7 +225,7 @@ function ProviderVoiceSettings({ provider, dictationOnly = false }: { provider: 
         <div className="settings-row">
           <Icon name="key.fill" size={13} color="var(--secondary)" />
           <VStack grow className="settings-stack">
-            <Text tone="text" truncate>Key saved</Text>
+            <Text tone="text" truncate>{tr(`Key saved`)}</Text>
             <Text size="caption" tone="tertiary" truncate>Stays on {store.hostName}</Text>
           </VStack>
           {busy ? (

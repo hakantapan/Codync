@@ -31,14 +31,10 @@ import com.codync.android.design.*
 
 private enum class Root { Loading, Welcome, Pairing, Tabs }
 
-/** A bot's settings to open, at its fallbacks from a chat's "Add a fallback" (iOS `DetailsRequest`). */
-private data class BotEditRequest(val draft: BotDraft, val atFallbacks: Boolean = false)
-
 /** The app's root, as iOS `RootView`: the welcome and pairing until set up, then the tabs, with every sheet on top. */
 @Composable fun CodyncApp(state: AppState, store: AppStore) {
     var welcomed by rememberSaveable { mutableStateOf(false) }
     var showAccount by rememberSaveable { mutableStateOf(false) }
-    var accountSettings by rememberSaveable { mutableStateOf(false) }
     var showComputers by rememberSaveable { mutableStateOf(false) }
     var showPairing by rememberSaveable { mutableStateOf(false) }
     var showUsage by rememberSaveable { mutableStateOf(false) }
@@ -46,12 +42,12 @@ private data class BotEditRequest(val draft: BotDraft, val atFallbacks: Boolean 
     var creatingBot by rememberSaveable { mutableStateOf(false) }
     var creatingGroup by rememberSaveable { mutableStateOf(false) }
     var access by remember { mutableStateOf<CloudComputer?>(null) }
-    var editor by remember { mutableStateOf<BotEditRequest?>(null) }
+    var editor by remember { mutableStateOf<BotDraft?>(null) }
     var groupEditor by remember { mutableStateOf<GroupDraft?>(null) }
     var handledNavigation by rememberSaveable { mutableIntStateOf(state.navigationRequest) }
     var handledGeneration by rememberSaveable { mutableIntStateOf(state.generation) }
     fun closeAll() {
-        showAccount = false; accountSettings = false; showComputers = false; showPairing = false; showMarketplace = false
+        showAccount = false; showComputers = false; showPairing = false; showMarketplace = false
         creatingBot = false; creatingGroup = false; access = null; editor = null; groupEditor = null
     }
     // A new account or a fresh start drops whatever was open for the old one.
@@ -76,8 +72,8 @@ private data class BotEditRequest(val draft: BotDraft, val atFallbacks: Boolean 
         else -> Root.Tabs
     }
     BackHandler(root == Root.Pairing && !signedIn) { welcomed = false }
-    val edit = { bot: Bot -> if (bot.kind == "group") groupEditor = GroupDraft.from(bot) else editor = BotEditRequest(BotDraft.from(bot)) }
-    val openMarketplace = { showAccount = false; accountSettings = false; showComputers = false; showMarketplace = true }
+    val edit = { bot: Bot -> if (bot.kind == "group") groupEditor = GroupDraft.from(bot) else editor = BotDraft.from(bot) }
+    val openMarketplace = { showAccount = false; showComputers = false; showMarketplace = true }
     Box(Modifier.fillMaxSize().background(Palette.background)) {
         AnimatedContent(root, transitionSpec = {
             if (initialState == Root.Welcome && targetState == Root.Pairing)
@@ -97,23 +93,18 @@ private data class BotEditRequest(val draft: BotDraft, val atFallbacks: Boolean 
                 Root.Tabs -> MainTabs(state, store, account = { showAccount = true }, manage = { showComputers = true }, usage = { showUsage = true },
                     newBot = { creatingBot = true }, newGroup = { creatingGroup = true },
                     edit = edit) {
-                    ChatScreen(state, store, edit) { bot -> editor = BotEditRequest(BotDraft.from(bot), atFallbacks = true) }
+                    ChatScreen(state, store, edit)
                 }
             }
         }
     }
-    // The account sheet holds its own push (Computers & settings), as the iOS sheet's NavigationStack.
-    CodyncSheet(showAccount && (state.setupComplete || signedIn) && !state.loading, { showAccount = false; accountSettings = false }) {
-        // Counted by the top page, outside NavStack: it composes the page below again while sliding.
-        AnalyticsOnAppear(AnalyticsEvent.ScreenViewed(if (accountSettings) AnalyticsScreen.Settings else AnalyticsScreen.Account))
-        NavStack(listOfNotNull("account", "settings".takeIf { accountSettings }), key = { it }, pop = { accountSettings = false }) { page ->
-            if (page == "account") AccountSwitcherView(state, store, { accountSettings = true }) { showPairing = true }
-            else SettingsView(state, store, { accountSettings = false }, { showPairing = true }, { access = it }, openMarketplace)
-        }
+    CodyncSheet(showAccount && (state.setupComplete || signedIn) && !state.loading, { showAccount = false }) {
+        AnalyticsOnAppear(AnalyticsEvent.ScreenViewed(AnalyticsScreen.Account))
+        AccountSwitcherView(state, store) { showPairing = true }
     }
     CodyncSheet(showComputers && !state.loading, { showComputers = false }) {
         AnalyticsOnAppear(AnalyticsEvent.ScreenViewed(AnalyticsScreen.Computers))
-        SettingsView(state, store, null, { showPairing = true }, { access = it }, openMarketplace)
+        ComputersView(state, store, { showPairing = true }, { access = it }, openMarketplace)
     }
     CodyncSheet(access, { access = null }) { AccessRequestView(state, store, it) }
     CodyncSheet(showPairing && !state.loading, { showPairing = false }) {
@@ -130,14 +121,14 @@ private data class BotEditRequest(val draft: BotDraft, val atFallbacks: Boolean 
     }
     CodyncSheet(creatingBot && !state.loading, { creatingBot = false }) { key(state.contextId, state.generation) { NewBotView(state, store) } }
     CodyncSheet(creatingGroup && !state.loading, { creatingGroup = false }) { key(state.contextId, state.generation) { NewGroupView(state, store) } }
-    // A bot or group's editor is its details.
+    // A group's editor is its details (a chat's title and the roster open it); a bot's (the roster's Edit profile) is all its settings.
     CodyncSheet(groupEditor.takeIf { !state.loading }, { groupEditor = null }) { draft ->
         AnalyticsOnAppear(AnalyticsEvent.ScreenViewed(AnalyticsScreen.BotDetails))
         key(state.contextId, state.generation, draft.id) { GroupEditor(state, draft, store) }
     }
-    CodyncSheet(editor.takeIf { !state.loading }, { editor = null }) { request ->
+    CodyncSheet(editor.takeIf { !state.loading }, { editor = null }) { draft ->
         AnalyticsOnAppear(AnalyticsEvent.ScreenViewed(AnalyticsScreen.BotDetails))
-        key(state.contextId, state.generation, request.draft.id) { BotEditor(state, request.draft, store, request.atFallbacks) }
+        key(state.contextId, state.generation, draft.id) { BotEditor(state, draft, store) }
     }
     // The remote screen opens over the app once its sheets have slid away.
     LaunchedEffect(state.screenRequest) { if (state.screenRequest != null) { closeAll(); showUsage = false } }

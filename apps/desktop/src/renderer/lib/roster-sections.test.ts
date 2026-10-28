@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { foldsAfterRename, limitSectionName, placedBots, rosterLines, sameRosterGroup, sectionMembers, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
 
-const item = (id: string, section?: string, { pinned = false, unread = 0 } = {}) => ({ id, bot: { pinned, section, unread } })
+const item = (id: string, section?: string, { lead = false, pinned = false, unread = 0 } = {}) => ({ id, bot: { lead, pinned, section, unread } })
 type Item = ReturnType<typeof item>
 
 /** Each line as text: a row's id, the "Bots" label, or a header's name, count, unread and fold. */
@@ -46,14 +46,21 @@ test('the label shows only with a section header and a bot in none', () => {
   assert.deepEqual(outline(rosterLines([item('p', undefined, { pinned: true }), item('a', 'Work')], [])), ['p', 'Work 1 0: a'])
 })
 
+test('the lead stays on top, outside its section', () => {
+  const items = [item('l', 'Work', { lead: true }), item('p', undefined, { pinned: true }), item('w', 'Work'), item('c')]
+  assert.deepEqual(outline(rosterLines(items, [])), ['l', 'p', 'Work 1 0: w', 'BOTS', 'c'])
+})
+
 test('a bot moves past bots with the same pin state and section; pinned bots ignore sections', () => {
-  const bot = (section?: string, pinned = false) => ({ pinned, section })
+  const bot = (section?: string, pinned = false, lead = false) => ({ lead, pinned, section })
   assert.equal(sameRosterGroup(bot('Work'), bot('Work')), true)
   assert.equal(sameRosterGroup(bot('Work'), bot('Home')), false)
   assert.equal(sameRosterGroup(bot('Work'), bot()), false)
   assert.equal(sameRosterGroup(bot(), bot('')), true)
   assert.equal(sameRosterGroup(bot('Work', true), bot('Home', true)), true)
   assert.equal(sameRosterGroup(bot('Work', true), bot('Work')), false)
+  assert.equal(sameRosterGroup(bot('Work', false, true), bot('Work')), false, 'the lead moves past no one')
+  assert.equal(sameRosterGroup(bot(undefined, false, true), bot(undefined, true)), false)
 })
 
 test('every section once, sorted by name', () => {

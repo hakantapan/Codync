@@ -38,7 +38,7 @@ export function useComputerRoster(app: AppModel, shown: Set<string>) {
     move(id: string, target: string) {
       app.computerOrder.move(id, target, computers.map((c) => c.id))
     },
-    /** One place up (-1) or down (+1) among its computer's bots with the same pin state and section. */
+    /** One place up (-1) or down (+1) among its computer's bots in the same band (lead, pinned, the rest) and, for the rest, the same section. */
     moveBot(ref: BotRef, offset: number) {
       const section = sections.find((s) => s.computer.id === ref.computerId)
       const items = section?.items ?? []

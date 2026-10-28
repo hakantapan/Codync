@@ -14,13 +14,13 @@ public struct TraceView: View {
         let turns = Dictionary(grouping: all, by: \.turn)
             .sorted { $0.key < $1.key }
         // The running turn's thoughts start unfolded.
-        let running = Self.runningTurn(all, working: model.bots[botId]?.isWorking(in: botId) == true)
+        let running = Entry.runningTurn(all, working: model.bots[botId]?.isWorking(in: botId) == true)
         VStack(spacing: 0) {
             ModalHeader("Full conversation")
             ScrollView {
             LazyVStack(alignment: .leading, spacing: 22) {
                 if turns.isEmpty {
-                    Text("Nothing yet.").foregroundStyle(Palette.tertiary)
+                    Text(L10n.tr("Nothing yet.")).foregroundStyle(Palette.tertiary)
                 }
                 ForEach(turns, id: \.key) { turn, entries in
                     VStack(alignment: .leading, spacing: 8) {
@@ -44,14 +44,9 @@ public struct TraceView: View {
         .background(Palette.background)
         .tracked(.screenViewed(.trace))
     }
-
-    /// The turn running now while the bot works in this chat; a queued message already holds the next turn.
-    nonisolated static func runningTurn(_ entries: [Entry], working: Bool) -> Int64? {
-        working ? entries.filter { $0.data.status != "queued" }.map(\.turn).max() : nil
-    }
 }
 
-private struct TraceRow: View {
+struct TraceRow: View {
     let entry: Entry
     @State private var expanded: Bool
 
@@ -69,14 +64,14 @@ private struct TraceRow: View {
                 .font(.subheadline)
         case "agent":
             VStack(alignment: .leading, spacing: 4) {
-                Text(d.final == true ? "Reply" : "Said").font(.caption2.bold()).foregroundStyle(Palette.tertiary)
+                Text(L10n.tr(d.final == true ? "Reply" : "Said")).font(.caption2.bold()).foregroundStyle(Palette.tertiary)
                 MarkdownText(d.text ?? "")
             }
         case "thought":
             Disclosure(isExpanded: $expanded) {
                 Text(d.text ?? "").font(.footnote).foregroundStyle(Palette.secondary).textSelection(.enabled)
             } label: {
-                Label { Text("Thinking") } icon: {
+                Label { Text(L10n.tr("Thinking")) } icon: {
                     ThinkingOrb(size: 16, color: Palette.secondary, animated: false)
                 }.font(.subheadline).foregroundStyle(Palette.secondary)
             }
@@ -84,7 +79,7 @@ private struct TraceRow: View {
             ToolRow(data: d)
         case "plan":
             VStack(alignment: .leading, spacing: 6) {
-                Label("Plan", systemImage: "checklist").font(.subheadline.bold())
+                Label(L10n.tr("Plan"), systemImage: "checklist").font(.subheadline.bold())
                 ForEach(Array((d.entries ?? []).enumerated()), id: \.offset) { _, item in
                     Label {
                         Text(item.content).strikethrough(item.status == "completed").foregroundStyle(Palette.text)
@@ -100,7 +95,7 @@ private struct TraceRow: View {
                 .font(.subheadline)
                 .foregroundStyle(Palette.secondary)
         default:
-            Text(d.text ?? "").font(.footnote).foregroundStyle(Palette.tertiary)
+            Text(L10n.tr(d.text ?? "")).font(.footnote).foregroundStyle(Palette.tertiary)
         }
     }
 }

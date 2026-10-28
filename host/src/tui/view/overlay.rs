@@ -40,20 +40,27 @@ pub(super) fn overlay(buf: &mut Buffer, area: Rect, app: &mut App, top: &Overlay
             goto(buf, area, app, g, &items);
         }
         Overlay::Help(filter) => help(buf, area, filter),
+        Overlay::LeadAgent(scroll) => super::lead_agent::lead_agent(buf, area, *scroll),
         Overlay::Confirm(c) => {
             let t = theme();
             let r = centered(area, 62, 8);
             let inner = frame_box(buf, r, t.red, t.panel, None);
+            // The title already includes a bot or device name. Translating it
+            // here would also translate a name that is itself a phrase.
+            let detail = super::super::l10n::tr(&c.detail);
+            let note = super::super::l10n::tr(&c.note);
+            let button = super::super::l10n::tr(c.button);
+            let cancel = super::super::l10n::tr("Cancel");
             put(buf, inner.x, inner.y, inner.width, &c.title, t.red.patch(t.panel).add_modifier(Modifier::BOLD));
-            put(buf, inner.x, inner.y + 1, inner.width, &c.detail, t.text.patch(t.panel));
-            put(buf, inner.x, inner.y + 2, inner.width, &c.note, t.secondary.patch(t.panel));
+            put(buf, inner.x, inner.y + 1, inner.width, detail.as_ref(), t.text.patch(t.panel));
+            put(buf, inner.x, inner.y + 2, inner.width, note.as_ref(), t.secondary.patch(t.panel));
             let danger = if t.color {
                 Style::default().fg(t.on_color).bg(rgb(0xF0A7A7)).add_modifier(Modifier::BOLD)
             } else {
                 t.sel
             };
-            let x = put(buf, inner.x, inner.y + 4, 30, &format!(" ↵ {} ", c.button), danger) + 1;
-            put(buf, x, inner.y + 4, 14, " esc Cancel ", t.text.patch(t.btn).add_modifier(Modifier::BOLD));
+            let x = put(buf, inner.x, inner.y + 4, 30, &format!(" ↵ {button} "), danger) + 1;
+            put(buf, x, inner.y + 4, 14, &format!(" esc {cancel} "), t.text.patch(t.btn).add_modifier(Modifier::BOLD));
         }
         Overlay::NewBot(n) => new_bot_view(buf, area, n),
         Overlay::Folder(p) => {
@@ -119,17 +126,20 @@ pub(super) fn overlay(buf: &mut Buffer, area: Rect, app: &mut App, top: &Overlay
         }
         Overlay::Form(form) => form_view(buf, area, app, form),
         Overlay::Group(g) => group_view(buf, area, app, g),
-        Overlay::Usage => usage(buf, area, app),
+        Overlay::Usage(scroll) => usage(buf, area, app, *scroll),
         Overlay::Pair(code) => pair(buf, area, code),
         Overlay::Memory(m) => super::super::sheets::memory(buf, area, app, m),
         Overlay::BotChat(c) => super::bot_chat::bot_chat(buf, area, app, c),
         Overlay::Routines(l) => super::super::sheets::routines(buf, area, app, l),
         Overlay::Routine(f) => super::super::sheets::routine(buf, area, f),
+        Overlay::Library(l) => super::super::sheets::library(buf, area, app, l),
+        Overlay::Gear(g) => super::super::sheets::gear(buf, area, app, g),
         Overlay::Market(m) => super::super::sheets::market(buf, area, app, m),
         Overlay::Agent(a) => super::super::sheets::agent(buf, area, app, a),
         Overlay::Fields(f) => super::super::sheets::fields(buf, area, f),
         Overlay::Skill(s) => super::skill::skill(buf, area, app, s),
         Overlay::Analytics(s) => super::analytics::analytics(buf, area, s),
+        Overlay::Network(n) => super::network::network(buf, area, n),
     }
 }
 
@@ -154,7 +164,8 @@ pub(in crate::tui) fn input_line(
         if active {
             set_cursor(Position::new(x, y));
         }
-        put(buf, x, y, r.right().saturating_sub(x), placeholder, t.dim.patch(t.panel));
+        let hint = super::super::l10n::tr(placeholder);
+        put(buf, x, y, r.right().saturating_sub(x), hint.as_ref(), t.dim.patch(t.panel));
     } else {
         let room = usize::from(r.right().saturating_sub(x + 1));
         let text = e.text.replace('\n', " ");

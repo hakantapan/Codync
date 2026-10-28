@@ -24,6 +24,16 @@ class RosterSectionsTest {
         ), rosterLines(roster, folded = emptySet()))
     }
 
+    @Test fun theLeadStaysOnTopOutsideItsSection() {
+        val lead = Bot("lead", lead = true, section = "Work")
+        assertEquals(listOf(
+            RosterLine.Row(lead), RosterLine.Row(pinned),
+            RosterLine.Header("Work", count = 1, unread = 2, folded = false), RosterLine.Row(work1),
+            RosterLine.Label, RosterLine.Row(loose),
+        ), rosterLines(listOf(lead, pinned, work1, loose), folded = emptySet()))
+        assertNull(moved(listOf(lead, work1), "w1", -1))
+    }
+
     @Test fun aFoldedSectionKeepsItsHeaderAndUnreadAndHidesItsBots() {
         assertEquals(listOf(
             RosterLine.Row(pinned),

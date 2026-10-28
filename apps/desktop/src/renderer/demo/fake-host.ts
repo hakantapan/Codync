@@ -249,6 +249,8 @@ export class FakeHost {
         }
       case 'routines':
         return { routines: [], runs: [] }
+      case 'agentGear':
+        return { skills: [], connectors: [], rules: [], plugins: [] }
       case 'skills':
       case 'connectors':
       case 'marketSkills':

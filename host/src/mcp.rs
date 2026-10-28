@@ -13,6 +13,18 @@ pub use remote::serve_remote;
 
 pub const PROTOCOL_VERSION: &str = "2025-06-18";
 
+/// ACP `McpServer` for `codync-host mcp <args…> --port <port>`. Its env names the data directory, where the token
+/// is: some agents start MCP servers with a filtered environment (Hermes keeps only PATH, HOME and a few more), so a
+/// custom `CODYNC_HOME` wouldn't reach the server otherwise.
+pub fn acp_server(name: &str, exe: &std::path::Path, args: &[&str], port: u16) -> Value {
+    let port = port.to_string();
+    let args: Vec<&str> = ["mcp"].into_iter().chain(args.iter().copied()).chain(["--port", &port]).collect();
+    json!({
+        "name": name, "command": exe, "args": args,
+        "env": [{"name": "CODYNC_HOME", "value": crate::service::data_dir()}],
+    })
+}
+
 #[derive(Clone, Copy)]
 pub enum Server {
     Chat,
@@ -23,6 +35,8 @@ pub enum Server {
     Manage,
     Memory,
     Composio,
+    /// For agents on this computer that aren't Codync bots; `bot` is the agent's name.
+    Network,
 }
 
 const INSTRUCTIONS: &str = "Operate this computer's apps like a person would, in the background where you can: \
@@ -37,7 +51,7 @@ pub async fn serve(bot: String, port: u16, server: Server) -> Result<()> {
     let token: Arc<str> = token.trim().into();
     let bot: Arc<str> = bot.into();
     let mut lines = BufReader::new(tokio::io::stdin()).lines();
-    // Requests run side by side (an ask_bot can take minutes); their replies share stdout.
+    // Requests run side by side (a manage approval can take minutes); their replies share stdout.
     let (replies, mut outbox) = mpsc::unbounded_channel::<Value>();
     tokio::spawn(async move {
         let mut out = tokio::io::stdout();
@@ -59,6 +73,7 @@ pub async fn serve(bot: String, port: u16, server: Server) -> Result<()> {
         Server::Chat => {
             let mut tools = crate::chat::outbox::tools();
             if let Some(list) = tools.as_array_mut() {
+                list.extend(crate::chat::artifacts::tools());
                 list.extend(crate::chat::profile::tools());
                 list.extend(crate::chat::fallbacks::tools());
                 list.push(crate::chat::reactions::tool());
@@ -71,6 +86,9 @@ pub async fn serve(bot: String, port: u16, server: Server) -> Result<()> {
         Server::Memory => ("codync-memory", crate::chat::memory::INSTRUCTIONS, crate::chat::memory::tools()),
         Server::Composio => {
             ("codync-composio", crate::market::composio::INSTRUCTIONS, crate::market::composio::tools())
+        }
+        Server::Network => {
+            ("codync-network", crate::chat::team::assistant::INSTRUCTIONS, crate::chat::team::assistant::tools())
         }
     };
     // Requests still running, by id: a cancelled one stops, and its host call with it (a team change's card expires).
@@ -142,12 +160,14 @@ async fn call(port: u16, token: &str, bot: &str, params: &Value, server: Server)
     let (method, timeout) = match server {
         Server::Connectors => ("connectorCall", Duration::from_secs(90)),
         Server::Routines => ("routineCall", Duration::from_secs(30)),
-        Server::Computer => ("computerCall", Duration::from_secs(60)),
+        Server::Computer => ("computerCall", Duration::from_mins(1)),
         Server::Chat => ("chatCall", Duration::from_secs(if params["name"] == "send_file" { 70 } else { 30 })),
-        Server::Team => ("teamCall", crate::chat::team::ASK_TIMEOUT + Duration::from_secs(30)),
+        Server::Team => ("teamCall", Duration::from_secs(30)),
         Server::Manage => ("manageCall", crate::chat::manage::APPROVAL_TIMEOUT + Duration::from_secs(30)),
-        Server::Memory => ("memoryCall", Duration::from_secs(120)),
-        Server::Composio => ("composioCall", Duration::from_secs(120)),
+        Server::Memory => ("memoryCall", Duration::from_mins(2)),
+        Server::Composio => ("composioCall", Duration::from_mins(2)),
+        // The first listing may wait for the other computers.
+        Server::Network => ("agentCall", Duration::from_secs(30)),
     };
     let res = crate::http()
         .post(format!("http://127.0.0.1:{port}/api/{method}"))
@@ -169,6 +189,7 @@ async fn call(port: u16, token: &str, bot: &str, params: &Value, server: Server)
                         | Server::Manage
                         | Server::Memory
                         | Server::Routines
+                        | Server::Network
                         | Server::Connectors => {
                             json!({"content": [{"type": "text", "text": v.to_string()}]})
                         }

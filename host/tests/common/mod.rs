@@ -11,6 +11,9 @@ use std::time::{Duration, Instant};
 /// host exits and this starts it again on another one.
 pub async fn serve(home: &Path) -> (Child, String) {
     let deadline = Instant::now() + Duration::from_secs(30);
+    let _ = std::fs::create_dir_all(home);
+    let log = home.join("host-stderr.log");
+    let mut last = String::new();
     loop {
         let port = std::net::TcpListener::bind("127.0.0.1:0").expect("free port").local_addr().expect("port").port();
         let base = format!("http://127.0.0.1:{port}");
@@ -19,18 +22,40 @@ pub async fn serve(home: &Path) -> (Child, String) {
             .env("CODYNC_HOME", home)
             .env("CODYNC_CLOUD", "off")
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(std::fs::File::create(&log).map_or_else(|_| Stdio::null(), Stdio::from))
             .spawn()
             .expect("start the host");
         while child.try_wait().expect("host state").is_none() {
-            if reqwest::get(format!("{base}/health")).await.is_ok() {
-                return (child, base);
+            match ready(&base, home).await {
+                Ok(()) => return (child, base),
+                Err(e) => last = e,
             }
-            assert!(Instant::now() < deadline, "host didn't start");
+            assert!(Instant::now() < deadline, "{}", not_started(&log, &last));
             tokio::time::sleep(Duration::from_millis(50)).await;
         }
-        assert!(Instant::now() < deadline, "host didn't start");
+        assert!(Instant::now() < deadline, "{}", not_started(&log, &last));
     }
+}
+
+/// Why a test host didn't answer: the last readiness check's error and the end of the host's log.
+fn not_started(log: &Path, last: &str) -> String {
+    let text = std::fs::read_to_string(log).unwrap_or_default();
+    let lines: Vec<&str> = text.lines().collect();
+    let tail = lines[lines.len().saturating_sub(30)..].join("\n");
+    format!("host didn't start; last readiness check: {last}\n--- host log ---\n{tail}")
+}
+
+/// Whether `base` is this home's host: on a reused port another test's host answers `/health` too.
+pub async fn ready(base: &str, home: &Path) -> Result<(), String> {
+    let token = std::fs::read_to_string(home.join("token")).map_err(|e| format!("no token yet: {e}"))?;
+    let res = reqwest::Client::new()
+        .get(format!("{base}/events?since=0&client=test"))
+        .bearer_auth(token.trim())
+        .timeout(Duration::from_secs(1))
+        .send()
+        .await
+        .map_err(|e| format!("{e:?}"))?;
+    res.status().is_success().then_some(()).ok_or_else(|| format!("status {}", res.status()))
 }
 
 /// Stops a test host the way launchd does (SIGTERM), so it shuts down its own
@@ -103,4 +128,22 @@ pub async fn snapshot(base: &str, token: &str) -> serde_json::Value {
         }
     }
     serde_json::json!({"rev": rev, "bots": bots, "entries": entries})
+}
+
+/// How many routine runs still hold a session in `home`'s store: the host keeps each as a
+/// `lane.session.<bot>@<bot>/routine-<run>` row (`store::model::run_session_key`) and forgets
+/// it when the run ends.
+#[allow(dead_code, reason = "only the routine tests wait for runs")]
+pub fn routine_sessions(home: &Path) -> i64 {
+    rusqlite::Connection::open(home.join("codync.db"))
+        .and_then(|db| {
+            db.query_row("SELECT COUNT(*) FROM kv WHERE k GLOB 'lane.session.*/routine-*'", [], |r| r.get(0))
+        })
+        .expect("read the host's store")
+}
+
+/// Bot `id` in a [`snapshot`] (which also holds the lead bot every host makes).
+#[allow(dead_code, reason = "not every test binary looks bots up")]
+pub fn bot<'a>(sync: &'a serde_json::Value, id: &str) -> &'a serde_json::Value {
+    sync["bots"].as_array().and_then(|bots| bots.iter().find(|b| b["id"] == id)).expect("the bot is in the snapshot")
 }

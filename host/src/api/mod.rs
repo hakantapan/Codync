@@ -9,6 +9,7 @@ mod files;
 mod host;
 mod http;
 mod marketplace;
+mod network;
 mod remote;
 
 pub use events::{events_stream, term_events};
@@ -91,7 +92,11 @@ async fn route(hub: &Arc<Hub>, caller: &Caller, method: &str, b: Value) -> Resul
         ControlFlow::Break(v) => return Ok(v),
         ControlFlow::Continue(b) => b,
     };
-    let b = match bots::call(hub, method, b).await? {
+    let b = match network::call(hub, method, b).await? {
+        ControlFlow::Break(v) => return Ok(v),
+        ControlFlow::Continue(b) => b,
+    };
+    let b = match bots::call(hub, caller, method, b).await? {
         ControlFlow::Break(v) => return Ok(v),
         ControlFlow::Continue(b) => b,
     };

@@ -1,3 +1,4 @@
+import CodyncKit
 import SwiftUI
 
 /// One row in a Codync menu: an action, a choice when `selected` is set, or a submenu.
@@ -107,11 +108,11 @@ private struct ContextActions: ViewModifier {
 
 @ViewBuilder private func menuLabel(_ item: MenuItem) -> some View {
     if let image = item.image {
-        SwiftUI.Label { Text(item.title) } icon: { image }
+        SwiftUI.Label { Text(L10n.tr(item.title)) } icon: { image }
     } else if let icon = item.icon {
-        SwiftUI.Label(item.title, systemImage: icon)
+        SwiftUI.Label(L10n.tr(item.title), systemImage: icon)
     } else {
-        Text(item.title)
+        Text(L10n.tr(item.title))
     }
 }
 

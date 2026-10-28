@@ -7,7 +7,7 @@ import { CharacterAvatar } from '../../components/Avatar'
 import { CardSection, ChoicePicker, DropdownMenu, IconButton, Pill, SearchField, Spinner, ValueRow } from '../../components/Controls'
 import { Icon } from '../../components/Icon'
 import { ModalHeader, Sheet, SheetPage, useDismiss } from '../../components/Overlay'
-import { HStack, IconSlot, VStack } from '../../components/Stack'
+import { HStack, IconSlot } from '../../components/Stack'
 import { Text } from '../../components/Text'
 import { useStore } from '../../store/context'
 import { useAgentModels } from './agent-models'
@@ -17,10 +17,14 @@ import { errorText, isValid, lastPathComponent, normalized, useFollowSaved, useP
 import { FormSheet } from '../marketplace/pieces'
 import { SkillSheet, type SkillRef } from '../marketplace/SkillSheet'
 import { AnchoredPanel, AutoTextArea, AvatarPicker, Field, SwitchRow } from './parts'
+import { NetworkSwitches } from './NetworkSwitches'
 import './bots.css'
+import { useTr } from '../../lib/use-language'
+
 
 /** Edit a bot in a modal: the settings form plus Close / Save. New bots start in `NewBotView`. */
 export function BotEditorView({ draft: initial }: { draft: BotDraft }) {
+  const tr = useTr()
   const store = useStore()
   const dismiss = useDismiss()
   const plugins = usePlugins(store)
@@ -44,7 +48,7 @@ export function BotEditorView({ draft: initial }: { draft: BotDraft }) {
   return (
     <SheetPage>
       <ModalHeader
-        title="Settings"
+        title={tr(`Settings`)}
         trailing={saving ? <Spinner /> : <IconButton title="Save" icon="checkmark" disabled={!isValid(draft) || saving || !online} onClick={save} />}
       />
       <div className="bot-editor-body">
@@ -93,11 +97,12 @@ export function BotSettingsPanel({ botId, part }: { botId: string; part: FormPar
 
 /** The bot that created this one with its team tools, and when. */
 function CreatedBy({ bot, creator }: { bot: Bot; creator: string }) {
+  const tr = useTr()
   const store = useStore()
   const date = new Date(bot.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
   return (
     <ValueRow label="Created by">
-      <Text truncate>{`${store.bots.get(creator)?.name ?? 'A bot'} · ${date}`}</Text>
+      <Text truncate>{`${store.bots.get(creator)?.name ?? tr(`A bot`)} · ${date}`}</Text>
     </ValueRow>
   )
 }
@@ -110,6 +115,7 @@ function BotSettingsForm({ draft, onChange, error, plugins, part = 'all' }: {
   plugins: Plugins | null
   part?: FormPart
 }) {
+  const tr = useTr()
   const store = useStore()
   const [pickingAvatar, setPickingAvatar] = useState(false)
   const [pickingFolder, setPickingFolder] = useState(false)
@@ -132,42 +138,18 @@ function BotSettingsForm({ draft, onChange, error, plugins, part = 'all' }: {
       <AutoTextArea className="field-box" value={draft.description} placeholder="e.g. Reviews PRs. Never pushes without asking." minRows={3} maxRows={8} onChange={(v) => set('description', v)} />
     </Field>
   )
-  const model = [
-    <AgentModelPicker key="model" backend={draft.backend} models={models} selection={draft.model} onChange={setModel} options={draft.modelOptions ?? {}} onOptionsChange={setModelOptions} />,
-    (draft.backend !== 'custom' && models.catalog?.fastMode) || draft.fastMode || (saved?.backend === draft.backend && fastModeShown(saved)) ? (
-      // Shown while the agent offers it (its model list, or the bot's own sessions), or while it's on.
-      <div key="fast" className="fade-in">
-        <SwitchRow
-          title="Fast mode"
-          detail={(saved && fastModeRefusal(saved)) ?? 'Faster replies for more usage, on models that offer it.'}
-          on={draft.fastMode ?? false}
-          onChange={(on) => set('fastMode', on)}
-        />
-      </div>
-    ) : null,
-  ]
-
   const ownRest = saved ? restOf(saved, draft.backend, Date.now()) : null
   const agent = (
-    <VStack key="agent" gap={8}>
-      <ValueRow label="Agent" detail={ownRest ? restLine(ownRest, Date.now()) : null}>
-        <ChoicePicker
-          selection={draft.backend}
-          options={[...backends.map(agentChoice), { id: 'custom', label: 'Custom command', leading: <AgentIcon registry="custom" size={14} /> }]}
-          onChange={(id) => onChange((d) => withBackend(d, id))}
-        />
-      </ValueRow>
-      {backend && !backend.available ? <Text size="caption" tone="attention">{backend.installHint}</Text> : null}
-      {draft.backend === 'custom' ? (
-        <input
-          className="field-box fade-in bot-command"
-          value={draft.command ?? ''}
-          placeholder="ACP command, e.g. my-agent --acp"
-          spellCheck={false}
-          onChange={(e) => set('command', e.target.value || null)}
-        />
-      ) : null}
-    </VStack>
+    <AgentModelPicker key="agent" backend={draft.backend} models={models} selection={draft.model}
+      onChange={setModel} options={draft.modelOptions ?? {}} onOptionsChange={setModelOptions}
+      agents={[...backends.map(agentChoice), { id: 'custom', label: 'Custom command', leading: <AgentIcon registry="custom" size={14} /> }]}
+      onAgentChange={(id) => onChange((d) => withBackend(d, id))} fast={draft.fastMode ?? false}
+      fastControl={((draft.backend !== 'custom' && models.catalog?.fastMode) || draft.fastMode || (saved?.backend === draft.backend && fastModeShown(saved))) ?
+        <SwitchRow title="Fast mode" detail={saved ? fastModeRefusal(saved) : null} on={draft.fastMode ?? false} onChange={(on) => set('fastMode', on)} /> : null}>
+      {ownRest && <Text size="caption" tone="secondary">{restLine(ownRest, Date.now())}</Text>}
+      {backend && !backend.available && <Text size="caption" tone="attention">{backend.installHint}</Text>}
+      {draft.backend === 'custom' && <input className="field-box bot-command" value={draft.command ?? ''} placeholder="ACP command, e.g. my-agent --acp" spellCheck={false} onChange={(e) => set('command', e.target.value || null)} />}
+    </AgentModelPicker>
   )
   // While the bot runs on a fallback, the Agent card starts with it.
   const step = saved?.agentStep ? <AgentStepBanner key="step" bot={saved} /> : null
@@ -191,7 +173,6 @@ function BotSettingsForm({ draft, onChange, error, plugins, part = 'all' }: {
           <CardSection title="Agent">
             {step}
             {agent}
-            {model}
             {fallbacks}
           </CardSection>
           {error ? <Text size="footnote" tone="danger" className="fade-in">{error}</Text> : null}
@@ -229,7 +210,6 @@ function BotSettingsForm({ draft, onChange, error, plugins, part = 'all' }: {
             <Text truncate>{store.hostName}</Text>
           </ValueRow>
           {part === 'all' ? agent : null}
-          {part === 'all' ? model : null}
           {part === 'all' ? fallbacks : null}
           <ValueRow
             label="Workspace"
@@ -247,7 +227,7 @@ function BotSettingsForm({ draft, onChange, error, plugins, part = 'all' }: {
               ]}
             >
               <Pill outlined className="workspace-pill">
-                <Text truncate className="workspace-pill-label">{draft.cwd ? lastPathComponent(draft.cwd) : 'Personal'}</Text>
+                <Text truncate className="workspace-pill-label">{draft.cwd ? lastPathComponent(draft.cwd) : tr(`Personal`)}</Text>
                 <Icon name="chevron.down" size={10} weight="semibold" color="var(--secondary)" />
               </Pill>
             </DropdownMenu>
@@ -298,6 +278,7 @@ function BotSettingsForm({ draft, onChange, error, plugins, part = 'all' }: {
               onChange={(on) => set('manageTeam', on)}
             />
           ) : null}
+          <NetworkSwitches draft={draft} set={set} />
         </CardSection>
 
         <PluginToggles
@@ -343,9 +324,10 @@ function PluginToggles({ title, empty, items, selection, onChange, onInfo }: {
   /** Shows an item's details from an info button beside its switch. */
   onInfo?: (item: { id: string; name: string; detail: string }) => void
 }) {
+  const tr = useTr()
   return (
     <CardSection title={title}>
-      {items.length ? null : <Text tone="secondary">{empty}</Text>}
+      {items.length ? null : <Text tone="secondary">{tr(empty)}</Text>}
       {items.map((item) => {
         const row = (
           <SwitchRow

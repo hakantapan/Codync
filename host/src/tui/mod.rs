@@ -3,8 +3,11 @@
 
 mod app;
 mod appearance;
+mod choice;
 mod connections;
+mod details;
 mod drafts;
+mod l10n;
 mod manage;
 mod md;
 mod net;
