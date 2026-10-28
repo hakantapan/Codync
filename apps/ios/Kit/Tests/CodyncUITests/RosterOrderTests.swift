@@ -137,11 +137,11 @@ private func rosterBot(_ id: String, pinned: Bool = false, lead: Bool = false, h
     let (store, done) = rosterStore([])
     defer { done() }
     #expect(!store.supportsSections) // The host hasn't answered yet.
-    store.hostVersion = HostVersion(version: "2.23.0")
+    store.hostVersion = HostVersion(version: "2.31.2")
     #expect(!store.supportsSections)
-    store.hostVersion = HostVersion(version: "2.24.0")
+    store.hostVersion = HostVersion(version: "2.32.0")
     #expect(store.supportsSections)
-    store.hostVersion = HostVersion(version: "2.24.1-dev")
+    store.hostVersion = HostVersion(version: "2.32.1-dev")
     #expect(store.supportsSections)
 }
 

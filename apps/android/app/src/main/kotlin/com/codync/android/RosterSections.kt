@@ -59,7 +59,7 @@ internal fun sectionNames(bots: List<Bot>): List<String> = bots.mapNotNull(Bot::
 internal fun menuSections(bots: List<Bot>): List<String> = sectionNames(bots.filterNot(Bot::deleted))
 
 /** The first host version that keeps sections (`section` on bots, `renameSection`). */
-private const val SECTIONS_HOST = "2.24.0"
+private const val SECTIONS_HOST = "2.32.0"
 
 /** Section controls show only for a host that keeps sections; before its `hello` (offline) they stay hidden. */
 internal val AppState.supportsSections: Boolean
