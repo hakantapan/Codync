@@ -62,11 +62,16 @@ import kotlinx.serialization.json.putJsonArray
     var naming by remember { mutableStateOf<SectionNaming?>(null) }
     val context = LocalContext.current
     var folded by remember { mutableStateOf(FoldedSections.load(context)) }
-    // A rename or removal made here keeps a folded section folded under its new name.
+    // A rename or removal made here keeps a folded section folded under its new name at once; a refusal puts the folds back.
     val renameSection = { from: String, to: String? ->
-        store.renameSection(from, to)
-        folded = foldsAfterRename(folded, from, to)
-        FoldedSections.save(context, folded)
+        val before = folded
+        val moved = foldsAfterRename(before, from, to)
+        folded = moved
+        FoldedSections.save(context, moved)
+        store.renameSection(from, to) {
+            folded = foldsAfterRefusal(folded, moved, before)
+            FoldedSections.save(context, folded)
+        }
     }
     var confirmNewSession by remember { mutableStateOf<Bot?>(null) }
     val roster = roster(state.bots)

@@ -49,10 +49,16 @@ struct BotListView: View {
     }
 
     /// Renames or removes (nil) a section on `store`'s computer; a folded one stays folded under its
-    /// new name, on this device.
+    /// new name, on this device, at once. A refusal puts the folds back, unless one was folded or
+    /// unfolded meanwhile.
     private func renameSection(_ name: String, to newName: String?, on store: BotStore) {
-        store.renameSection(from: name, to: newName)
-        foldedSections = RosterSection.folds(foldedSections, renaming: name, to: newName)
+        let before = foldedSections
+        let moved = RosterSection.folds(before, renaming: name, to: newName)
+        foldedSections = moved
+        Task {
+            if await store.renameSection(from: name, to: newName) { return }
+            foldedSections = RosterSection.folds(foldedSections, refused: moved, before: before)
+        }
     }
 
     private var shownIDs: Set<ComputerID> {

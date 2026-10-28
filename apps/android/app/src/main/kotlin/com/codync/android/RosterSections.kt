@@ -89,6 +89,9 @@ internal fun sectionName(input: String): String? =
 internal fun foldsAfterRename(folded: Set<String>, from: String, to: String?): Set<String> =
     if (from in folded) folded - from + setOfNotNull(to) else folded
 
+/** This device's folded sections after the computer refused a rename that changed them from [before] to [set]: [before] again, unless they changed since. */
+internal fun foldsAfterRefusal(current: Set<String>, set: Set<String>, before: Set<String>): Set<String> = if (current == set) before else current
+
 /** The sections folded on this device (iOS `@AppStorage("collapsedRosterSections")`); not synced. */
 internal object FoldedSections {
     private const val KEY = "collapsedRosterSections"

@@ -60,13 +60,20 @@ extension BotStore {
     /// after `undo` takes back what the action already showed.
     private func perform(replay: Bool = false, undo: @escaping @MainActor () -> Void = {},
                          _ op: @escaping @MainActor (HostClient) async throws -> Void) {
-        Task {
-            do {
-                try await withLink(replay: replay, op)
-            } catch {
-                undo()
-                lastError = error.localizedDescription
-            }
+        Task { await attempt(replay: replay, undo: undo, op) }
+    }
+
+    /// `perform` for a caller that waits: whether the computer took it.
+    @discardableResult
+    private func attempt(replay: Bool = false, undo: @MainActor () -> Void = {},
+                         _ op: @MainActor (HostClient) async throws -> Void) async -> Bool {
+        do {
+            try await withLink(replay: replay, op)
+            return true
+        } catch {
+            undo()
+            lastError = error.localizedDescription
+            return false
         }
     }
 
@@ -282,20 +289,32 @@ extension BotStore {
     public func setSection(_ bot: Bot, to section: String?) {
         let before = bots[bot.id]?.section
         place([bot.id], in: section)
-        perform(replay: true, undo: { self.place([bot.id], in: before) }) { try await $0.setSection(bot.id, to: section) }
+        perform(replay: true, undo: { self.takeBack([bot.id], from: section, to: before) }) {
+            try await $0.setSection(bot.id, to: section)
+        }
     }
 
     /// Moves every bot of this computer in section `name` to `newName` (a name already in use
-    /// merges the two); nil removes the section, its bots staying without one.
-    public func renameSection(from name: String, to newName: String?) {
+    /// merges the two); nil removes the section, its bots staying without one. Whether the
+    /// computer took it: a refusal is taken back and shown.
+    @discardableResult
+    public func renameSection(from name: String, to newName: String?) async -> Bool {
         let moved = bots.values.filter { $0.section == name }.map(\.id)
         place(moved, in: newName)
-        perform(replay: true, undo: { self.place(moved, in: name) }) { try await $0.renameSection(from: name, to: newName) }
+        return await attempt(replay: true, undo: { takeBack(moved, from: newName, to: name) }) {
+            try await $0.renameSection(from: name, to: newName)
+        }
     }
 
     /// Shows the bots in `section` before the computer confirms it; its `bot` events follow.
     private func place(_ ids: [String], in section: String?) {
         Motion.animate { for id in ids { bots[id]?.section = section } }
+    }
+
+    /// Takes back a refused `place`: the bots still in `shown` return to `section`; one a newer
+    /// change moved meanwhile (another device's) stays where that put it.
+    private func takeBack(_ ids: [String], from shown: String?, to section: String?) {
+        place(ids.filter { bots[$0]?.section == shown }, in: section)
     }
 
     public func delete(_ bot: Bot) {

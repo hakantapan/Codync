@@ -100,6 +100,13 @@ class RosterSectionsTest {
         assertEquals(setOf("Home"), foldsAfterRename(setOf("Home", "Work"), "Work", "Home"))
     }
 
+    @Test fun aRefusedRenamePutsTheFoldsBackUnlessOneChangedMeanwhile() {
+        val before = setOf("Home", "Work")
+        val moved = setOf("Home", "Jobs")
+        assertEquals(before, foldsAfterRefusal(moved, moved, before))
+        assertEquals(setOf("Jobs"), foldsAfterRefusal(setOf("Jobs"), moved, before)) // "Home" unfolded meanwhile: kept.
+    }
+
     @Test fun sectionControlsWaitForAHostThatKeepsSections() {
         fun host(version: String?) = AppState(hello = version?.let { buildJsonObject { put("version", it) } })
         assertFalse(host("2.31.2").supportsSections)

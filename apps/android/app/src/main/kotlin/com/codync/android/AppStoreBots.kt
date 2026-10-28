@@ -7,9 +7,12 @@ import kotlinx.serialization.json.*
 
 // Bots and groups, their routines, usage, and the host queries the screens make.
 
-fun AppStore.command(method: String, body: JsonObject = JsonObject(emptyMap()), key: String = method, onSuccess: () -> Unit = {}) = action(key) {
-    val active = ready()
-    val response = active.call(method, body)
+/** [onFailure] runs when the computer didn't take it (unreachable, or refused), before the error shows. */
+fun AppStore.command(method: String, body: JsonObject = JsonObject(emptyMap()), key: String = method, onFailure: () -> Unit = {},
+    onSuccess: () -> Unit = {}) = action(key) {
+    val response = try { ready().call(method, body) }
+        catch (error: CancellationException) { throw error }
+        catch (error: Exception) { onFailure(); throw error }
     response.jsonObject["bot"]?.let { value ->
         withContext(Dispatchers.IO) { requireNotNull(database).receive(HostClient.decode(value.jsonObject)) }
     }
@@ -23,8 +26,12 @@ fun AppStore.command(method: String, body: JsonObject = JsonObject(emptyMap()), 
 /** Moves a bot into the roster section [section], or out of any (null). */
 fun AppStore.setSection(botId: String, section: String?) = command("updateBot", sectionUpdate(botId, section), "roster:$botId")
 
-/** Moves every bot of the section [from] into [to] (merging into a section of that name), or out of any (null: removes the section). */
-fun AppStore.renameSection(from: String, to: String?) = command("renameSection", sectionRename(from, to), "section:$from")
+/**
+ * Moves every bot of the section [from] into [to] (merging into a section of that name), or out of any (null: removes the section);
+ * [onRefused] when the computer doesn't.
+ */
+fun AppStore.renameSection(from: String, to: String?, onRefused: () -> Unit) =
+    command("renameSection", sectionRename(from, to), "section:$from", onFailure = onRefused)
 
 fun AppStore.saveBot(draft: BotDraft, onSaved: () -> Unit) = action("editor") {
     val active = ready()

@@ -124,6 +124,12 @@ private func rosterBot(_ id: String, pinned: Bool = false, lead: Bool = false, h
     #expect(RosterSection.folds(["Home", "Work"], renaming: "Work", to: "Home") == ["Home"])
 }
 
+@Test func aRefusedRenamePutsTheFoldsBackUnlessOneChangedMeanwhile() {
+    let before: Set = ["Home", "Work"], moved: Set = ["Home", "Jobs"]
+    #expect(RosterSection.folds(moved, refused: moved, before: before) == before)
+    #expect(RosterSection.folds(["Jobs"], refused: moved, before: before) == ["Jobs"]) // "Home" unfolded meanwhile: kept.
+}
+
 @MainActor @Test func sectionMenuListsEverySectionOnTheComputer() throws {
     let (store, done) = try rosterStore([
         rosterBot("a", section: "Work"), rosterBot("p", pinned: true, section: "Pinned"),
@@ -153,13 +159,47 @@ private func rosterBot(_ id: String, pinned: Bool = false, lead: Bool = false, h
     #expect(store.bots["a"]?.section == "Work")
     #expect(await until { store.bots["a"]?.section == nil })
     #expect(store.lastError != nil)
-    store.renameSection(from: "Work", to: "Home") // Onto a name in use: the two merge.
-    #expect(store.sections == ["Home"])
-    #expect(await until { store.bots["b"]?.section == "Work" })
+    store.connection = .connecting // The next call waits for the link…
+    let merge = Task { await store.renameSection(from: "Work", to: "Home") } // Onto a name in use: the two merge.
+    #expect(await until { store.sections == ["Home"] })
+    store.connection = .unauthorized("No access") // …which turns it away.
+    #expect(await merge.value == false) // So this device's folds go back.
+    #expect(store.bots["b"]?.section == "Work")
     #expect(store.bots["c"]?.section == "Home") // Already in "Home": the undo leaves it.
-    store.renameSection(from: "Home", to: nil)
-    #expect(store.bots["c"]?.section == nil)
-    #expect(await until { store.bots["c"]?.section == "Home" })
+    #expect(await store.renameSection(from: "Home", to: nil) == false)
+    #expect(store.bots["c"]?.section == "Home")
+}
+
+@MainActor @Test func aRefusedSectionChangeKeepsWhatAnotherDeviceMovedMeanwhile() async throws {
+    let (store, done) = try rosterStore([rosterBot("a"), rosterBot("b", section: "Work"), rosterBot("c", section: "Work")])
+    defer { done() }
+    // Both calls wait for the link (the store never connects).
+    store.setSection(try #require(store.bots["a"]), to: "Work")
+    let rename = Task { await store.renameSection(from: "Work", to: "Jobs") }
+    #expect(await until { store.sections == ["Jobs"] })
+    // Another device moves two of them; then the computer turns this phone's changes away.
+    store.bots["a"]?.section = "Home"
+    store.bots["b"]?.section = "Home"
+    store.connection = .unauthorized("No access")
+    #expect(await rename.value == false)
+    #expect(store.bots["a"]?.section == "Home")
+    #expect(store.bots["b"]?.section == "Home")
+    #expect(store.bots["c"]?.section == "Work") // Still where the refused rename put it: taken back.
+}
+
+@MainActor @Test func aRenameTheComputerTakesReportsIt() async throws {
+    let (storage, suite) = context()
+    defer { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
+    let fake = FakeRemote(.ready(.direct))
+    let store = BotStore(computer: randomComputer("Mac"), storage: storage) { _ in fake }
+    defer { store.retire() }
+    store.setActive(true)
+    #expect(await until { await fake.subscribed })
+    await fake.emit(#"{"type":"bot","bot":{"id":"b1","name":"Bot","rev":1,"lastAt":1,"section":"Work"}}"#)
+    #expect(await until { store.connection == .online })
+    #expect(await store.renameSection(from: "Work", to: "Jobs")) // So a folded "Work" stays folded as "Jobs".
+    #expect(await fake.calls.contains("renameSection"))
+    #expect(store.bots["b1"]?.section == "Jobs")
 }
 
 @MainActor @Test func botsMoveOnlyAmongTheirPinStateAndSection() throws {

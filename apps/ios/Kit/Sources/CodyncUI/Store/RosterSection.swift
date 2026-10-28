@@ -46,6 +46,12 @@ public struct RosterSection: Sendable {
         return names
     }
 
+    /// This device's folded sections after the computer refused a rename that changed them from
+    /// `before` to `set`: `before` again, unless they changed since (a section folded meanwhile).
+    public static func folds(_ current: Set<String>, refused set: Set<String>, before: Set<String>) -> Set<String> {
+        current == set ? before : current
+    }
+
     /// A computer's roster (in `BotStore.roster` order) as the rows on screen: the lead and pinned
     /// bots, then each section by name with its bots (none while folded), then the bots in no
     /// section, under the "Bots" label when there are sections. The lead and a pinned bot show only
