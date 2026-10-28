@@ -20,10 +20,9 @@ is not translated. The desktop catalog test checks key and placeholder parity.
 
 The five additional catalogs began as machine translations of public interface
 copy, with reviewed overrides for common controls. They have not had a complete
-native-speaker review. The Turkish catalog was translated later with the
-glossary and informal address in [the Turkish plan](../plans/turkish.md).
-Translation improvements should change the canonical catalog and run the catalog
-test, together with the affected client checks.
+native-speaker review. The Turkish catalog was translated later, following the
+wording below. Translation improvements should change the canonical catalog and
+run the catalog test, together with the affected client checks.
 
 For a new language, add its catalog and register its identifier/native name in
 Swift `AppLanguage`, desktop `appLanguages`, Android `AppLanguage`, and terminal
@@ -31,3 +30,36 @@ Swift `AppLanguage`, desktop `appLanguages`, Android `AppLanguage`, and terminal
 embedded catalogs; Android picks up the shared JSON automatically. Test explicit
 selection, persistence, regional system tags, unknown-language fallback, widgets,
 and the desktop tray. Update the iPhone release notes.
+
+## Turkish wording
+
+Turkish addresses the reader with informal "sen" ("Bu sohbeti silmek istediğine emin misin?").
+Glossary:
+
+| English | Turkish |
+|---|---|
+| Bot / Group | Bot / Grup |
+| Section | Bölüm |
+| Computer | Bilgisayar |
+| Host | Host |
+| Agent | Ajan |
+| Conversation / Thread | Sohbet |
+| Session | Oturum |
+| Reply / Mention | Yanıt / Anma |
+| Steps / Tools | Adımlar / Araçlar |
+| Approve / Deny | Onayla / Reddet |
+| Routine / Trigger | Rutin / Tetikleyici |
+| Connector / Skill | Bağlayıcı / Beceri |
+| Extensions | Uzantılar |
+| Marketplace | Mağaza |
+| Memory / Usage | Hafıza / Kullanım |
+| Remote screen / Voice call | Uzak ekran / Sesli arama |
+| Pin / Unpin | Sabitle / Sabitlemeyi kaldır |
+| Move to section | Bölüme taşı |
+| Pair iPhone | iPhone eşle (with a name: "iPhone'u {name} ile eşle") |
+| Settings | Ayarlar |
+| Delete / Hide | Sil / Gizle |
+| Follow system | Sistemi izle |
+
+Kept as they are: Codync, Claude, Codex, iPhone, Webhook, MCP, model names, keyboard shortcuts,
+commands and code in backticks. Short labels stay short (Turkish runs about 30% longer).

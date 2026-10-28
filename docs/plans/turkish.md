@@ -1,6 +1,6 @@
 # Turkish interface language
 
-Status: approved design (2026-10-28), not started.
+Status: built on `feat/turkish` (catalog and every client registration); not merged yet.
 
 ## Goal
 
@@ -25,46 +25,21 @@ apps register the language in the same change at little extra cost (the repo's c
   `zh-Hans.json` (the English phrase is the key, `{token}` slots kept), every value Turkish.
   `"English": "English"` stays as in the other catalogs; the language's own name is `Türkçe`.
 - Each client adds `tr` exactly where 3b612a6d added `ja`/`ko`/`fr`/`de`/`es`:
-  - desktop `apps/desktop/src/renderer/lib/l10n.ts` (`appLanguages`, `catalogs`,
-    `resolvedLanguage`), its settings menu and `catalogs.test.ts`;
+  - desktop `apps/desktop/src/renderer/lib/l10n.ts` (`appLanguages`, `catalogs`, native name)
+    and `catalogs.test.ts`;
   - iOS `apps/ios/Kit/Sources/CodyncKit/L10n.swift` (`AppLanguage`, catalogs, locale, menu
-    title) and `apps/ios/Views/LanguageSettings.swift`;
+    title);
   - Android `apps/android/design/src/main/kotlin/com/codync/android/design/L10n.kt`
     (`AppLanguage`);
   - terminal `host/src/tui/l10n.rs`.
 - "Follow system" picks Turkish when the system language starts with `tr`.
+- The settings menus list `appLanguages` (desktop) and `AppLanguage.allCases` (iOS), so they need
+  no edit.
 
 ## Wording
 
-Informal "sen" address ("Bu sohbeti silmek istediğine emin misin?"). Glossary:
-
-| English | Turkish |
-|---|---|
-| Bot / Group | Bot / Grup |
-| Section | Bölüm |
-| Computer | Bilgisayar |
-| Host | Host |
-| Agent | Ajan |
-| Conversation / Thread | Sohbet |
-| Session | Oturum |
-| Reply / Mention | Yanıt / Anma |
-| Steps / Tools | Adımlar / Araçlar |
-| Approve / Deny | Onayla / Reddet |
-| Routine / Trigger | Rutin / Tetikleyici |
-| Connector / Skill | Bağlayıcı / Beceri |
-| Extensions | Uzantılar |
-| Marketplace | Mağaza |
-| Memory / Usage | Hafıza / Kullanım |
-| Remote screen / Voice call | Uzak ekran / Sesli arama |
-| Pin / Unpin | Sabitle / Sabitlemeyi kaldır |
-| Move to section | Bölüme taşı |
-| Pair iPhone | iPhone'u eşle |
-| Settings | Ayarlar |
-| Delete / Hide | Sil / Gizle |
-| Follow system | Sistemi izle |
-
-Kept as they are: Codync, Claude, Codex, iPhone, Webhook, MCP, model names, keyboard shortcuts,
-commands and code in backticks. Short labels stay short (Turkish runs about 30% longer).
+Informal "sen" address, with the glossary in the
+[localization guide](../guides/localization.md#turkish-wording).
 
 ## Testing
 
