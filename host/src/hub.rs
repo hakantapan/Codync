@@ -19,6 +19,7 @@ use std::time::Duration;
 use tokio::sync::{broadcast, watch};
 
 mod order;
+mod patch;
 mod reactions;
 mod sections;
 mod sync;
@@ -256,43 +257,25 @@ impl Hub {
 
     pub fn update_bot(&self, patch: &Value) -> Result<Value> {
         let id = patch["id"].as_str().ok_or_else(|| anyhow!("id required"))?.to_owned();
-        let row = self.store.bot(&id)?.filter(|b| !b.deleted).ok_or_else(|| anyhow!("unknown bot"))?;
-        let mut merged = serde_json::to_value(&row.config)?;
-        for (k, v) in patch.as_object().into_iter().flatten() {
-            if !matches!(k.as_str(), "id" | "createdAt" | "createdBy" | "lead") {
-                merged[k] = v.clone();
-            }
-        }
-        let mut cfg: BotConfig = serde_json::from_value(merged)?;
-        if cfg.name.trim().is_empty() {
-            cfg.name.clone_from(&row.config.name);
-        }
-        // A name the user picked ends automatic naming; the namer passes `autoName` itself.
-        if cfg.name != row.config.name && patch.get("autoName").is_none() {
-            cfg.auto_name = false;
-        }
-        // Options belong to one model; an app that doesn't know them can't clear them itself.
-        if (cfg.model != row.config.model || cfg.backend != row.config.backend) && patch.get("modelOptions").is_none() {
-            cfg.model_options.clear();
-        }
-        if cfg.kind != row.config.kind {
-            bail!("a bot can't become a group, or a group a bot");
-        }
-        if cfg.is_group() {
-            cfg.members = crate::chat::group::valid_members(&self.store, &cfg.id, &cfg.members)?;
-        }
-        crate::agent::fallback::tidy(&mut cfg);
-        cfg.section = sections::normalize_section(cfg.section.as_deref())?;
-        validate(&cfg)?;
-        crate::agent::workspace::prepare(&mut cfg)?;
-        crate::agent::own_memory::settle(&mut cfg, &row.config, patch);
-        {
+        // Read, merge and save under one lock: a section rename in between would otherwise be written back.
+        let (before, cfg) = {
             let _g = self.emit_lock.locked();
+            let row = self.store.bot(&id)?.filter(|b| !b.deleted).ok_or_else(|| anyhow!("unknown bot"))?;
+            let mut cfg = patch::patched(&row.config, patch)?;
+            if cfg.is_group() {
+                cfg.members = crate::chat::group::valid_members(&self.store, &cfg.id, &cfg.members)?;
+            }
+            crate::agent::fallback::tidy(&mut cfg);
+            cfg.section = sections::normalize_section(cfg.section.as_deref())?;
+            validate(&cfg)?;
+            crate::agent::workspace::prepare(&mut cfg)?;
+            crate::agent::own_memory::settle(&mut cfg, &row.config, patch);
             self.store.save_bot(&cfg)?;
-        }
+            (row.config, cfg)
+        };
         crate::network::publish(self);
         if !cfg.is_group() {
-            if crate::chat::memory::shared(&cfg) != crate::chat::memory::shared(&row.config) {
+            if crate::chat::memory::shared(&cfg) != crate::chat::memory::shared(&before) {
                 crate::chat::memory::changed(self, Some(&id));
             }
             self.send_cmd(&id, Cmd::Reconfigure(Box::new(cfg)))?;
