@@ -209,7 +209,7 @@ private fun Bot.movesWith(other: Bot) = band == other.band && (staysOnTop || sec
             MenuItem(if (bot.pinned) "Unpin" else "Pin", icon = if (bot.pinned) "pin.slash" else "pin") {
                 store.command("updateBot", buildJsonObject { put("id", bot.id); put("pinned", !bot.pinned) }, "roster:" + bot.id)
             }.takeUnless { bot.lead },
-            if (state.supportsSections && !bot.lead) sectionMenu(bot, sections, store, newSection) else null,
+            if (state.supportsSections && !bot.lead) sectionMenu(bot, sections, { store.setSection(bot.id, it) }, newSection) else null,
             if (bot.kind == "group") MenuItem("Edit group", icon = "person.2", action = edit)
             else MenuItem("Edit profile", icon = "pencil", action = edit),
             MenuItem("Mark as read", icon = "checkmark.message") {

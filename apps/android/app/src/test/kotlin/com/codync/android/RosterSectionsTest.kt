@@ -107,6 +107,15 @@ class RosterSectionsTest {
         assertEquals(setOf("Jobs"), foldsAfterRefusal(setOf("Jobs"), moved, before)) // "Home" unfolded meanwhile: kept.
     }
 
+    @Test fun moveToSectionShowsEachSectionByTheNameTheUserTypedNeverTranslated() {
+        val translate = { title: String -> "translated $title" }
+        val menu = sectionMenu(Bot("b", section = "Work"), listOf("Settings", "Work"), move = {}, newSection = {})
+        assertEquals("translated Move to section", menu.shownTitle(translate))
+        // A section named "Settings" stays "Settings"; the app's own rows translate.
+        assertEquals(listOf("Settings", "translated New section…", "translated Remove from section"),
+            menu.children.orEmpty().map { it.shownTitle(translate) })
+    }
+
     @Test fun sectionControlsWaitForAHostThatKeepsSections() {
         fun host(version: String?) = AppState(hello = version?.let { buildJsonObject { put("version", it) } })
         assertFalse(host("2.31.2").supportsSections)

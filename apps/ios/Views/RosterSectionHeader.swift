@@ -46,17 +46,26 @@ struct RosterSectionHeader: View {
         .accessibilityElement(children: .ignore)
         .accessibilityAddTraits([.isHeader, .isButton])
         .accessibilityLabel(spoken)
-        .accessibilityValue(section.folded ? "Collapsed" : "Expanded")
-        .accessibilityHint(hasMenu ? "Double-tap to fold or expand. Touch and hold to rename or remove the section." : "Double-tap to fold or expand.")
-        .accessibilityAction(named: section.folded ? "Expand" : "Collapse", toggle)
+        .accessibilityValue(section.folded ? L10n.tr("Collapsed") : L10n.tr("Expanded"))
+        .accessibilityHint(hasMenu ? L10n.tr("Double-tap to fold or expand. Touch and hold to rename or remove the section.")
+            : L10n.tr("Double-tap to fold or expand."))
+        .accessibilityAction(named: section.folded ? L10n.tr("Expand") : L10n.tr("Collapse"), toggle)
         .accessibilityAction(.default) { toggle() }
     }
 
-    /// "Work, 2 bots, 3 unread": what the count and the badge stand for.
+    /// "Work, 2 bots, 3 unread": what the count and the badge stand for, its phrase translated
+    /// before the name goes in.
     private var spoken: String {
-        let bots = section.count == 1 ? "1 bot" : "\(section.count) bots"
-        let unread = showsUnread ? ", \(section.unread) unread" : ""
-        return "\(section.name), \(bots)\(unread)"
+        let phrase = switch (section.count == 1, showsUnread) {
+        case (true, false): L10n.tr("{name}, 1 bot")
+        case (false, false): L10n.tr("{name}, {count} bots")
+        case (true, true): L10n.tr("{name}, 1 bot, {unread} unread")
+        case (false, true): L10n.tr("{name}, {count} bots, {unread} unread")
+        }
+        // The name goes in last, so one that reads "{count}" stays as the user typed it.
+        return phrase.replacingOccurrences(of: "{count}", with: String(section.count))
+            .replacingOccurrences(of: "{unread}", with: String(section.unread))
+            .replacingOccurrences(of: "{name}", with: section.name)
     }
 }
 
@@ -64,7 +73,7 @@ struct RosterSectionHeader: View {
 /// rows line up; it folds nothing and has no menu.
 struct RosterBotsLabel: View {
     var body: some View {
-        Text("Bots")
+        Text(L10n.tr("Bots"))
             .font(.footnote.weight(.semibold))
             .foregroundStyle(Palette.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)

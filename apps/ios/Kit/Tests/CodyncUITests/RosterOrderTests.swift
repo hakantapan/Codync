@@ -130,6 +130,12 @@ private func rosterBot(_ id: String, pinned: Bool = false, lead: Bool = false, h
     #expect(RosterSection.folds(["Jobs"], refused: moved, before: before) == ["Jobs"]) // "Home" unfolded meanwhile: kept.
 }
 
+@Test func aSectionsNameInAMenuShowsAsTheUserTypedIt() {
+    let translate = { (_: String) in "Einstellungen" }
+    #expect(MenuItem("Settings", verbatim: true) {}.shownTitle(translate) == "Settings") // A section named "Settings".
+    #expect(MenuItem("Settings") {}.shownTitle(translate) == "Einstellungen") // The app's own Settings.
+}
+
 @MainActor @Test func sectionMenuListsEverySectionOnTheComputer() throws {
     let (store, done) = try rosterStore([
         rosterBot("a", section: "Work"), rosterBot("p", pinned: true, section: "Pinned"),

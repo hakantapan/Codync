@@ -353,10 +353,11 @@ struct BotListView: View {
         }
     }
 
-    /// "Move to section ▸": the computer's other sections, a new one, and out of its own.
+    /// "Move to section ▸": the computer's other sections (by the names the user gave them, never
+    /// translated), a new one, and out of its own.
     private func sectionMenu(_ bot: Bot, store: BotStore) -> MenuItem {
         var rows = store.sections.filter { $0 != bot.section }.map { name in
-            MenuItem(name, icon: "tray") { store.setSection(bot, to: name) }
+            MenuItem(name, icon: "tray", verbatim: true) { store.setSection(bot, to: name) }
         }
         rows.append(MenuItem("New section…", icon: "plus", divider: !rows.isEmpty) { naming = .new(bot, store) })
         if bot.section != nil {

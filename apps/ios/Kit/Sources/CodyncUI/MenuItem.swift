@@ -11,19 +11,22 @@ public struct MenuItem: Identifiable {
     public var selected: Bool?
     public var destructive: Bool
     public var divider: Bool
+    /// Shows `title` as it is, never translated: a name the user gave (a section's).
+    public var verbatim: Bool
     /// The rows of the submenu this row opens ("Move to section ▸") instead of running `action`;
     /// one level deep: a row inside it can't open another.
     public var submenu: [MenuItem] = []
     public var action: () -> Void
 
     public init(_ title: String, icon: String? = nil, image: Image? = nil, selected: Bool? = nil, destructive: Bool = false,
-                divider: Bool = false, action: @escaping () -> Void) {
+                divider: Bool = false, verbatim: Bool = false, action: @escaping () -> Void) {
         self.title = title
         self.icon = icon
         self.image = image
         self.selected = selected
         self.destructive = destructive
         self.divider = divider
+        self.verbatim = verbatim
         self.action = action
     }
 
@@ -32,6 +35,9 @@ public struct MenuItem: Identifiable {
         self.init(title, icon: icon, divider: divider) {}
         submenu = rows
     }
+
+    /// `title` as the row shows it: in the app's language, unless `verbatim`.
+    func shownTitle(_ translate: (String) -> String = { L10n.tr($0) }) -> String { verbatim ? title : translate(title) }
 }
 
 /// A row of emoji above a message's menu (Slack's quick reactions).
@@ -79,7 +85,7 @@ private struct ContextActions: ViewModifier {
 
 /// A `MenuItem` inside a system `Menu` or `contextMenu`; a submenu opens its rows in a system
 /// `Menu`, one level deep (an opaque row type can't contain itself).
-@ViewBuilder func systemMenuRow(_ item: MenuItem) -> some View {
+@ViewBuilder private func systemMenuRow(_ item: MenuItem) -> some View {
     if item.submenu.isEmpty {
         systemMenuAction(item)
     } else {
@@ -107,12 +113,13 @@ private struct ContextActions: ViewModifier {
 }
 
 @ViewBuilder private func menuLabel(_ item: MenuItem) -> some View {
+    let title = item.shownTitle()
     if let image = item.image {
-        SwiftUI.Label { Text(L10n.tr(item.title)) } icon: { image }
+        SwiftUI.Label { Text(title) } icon: { image }
     } else if let icon = item.icon {
-        SwiftUI.Label(L10n.tr(item.title), systemImage: icon)
+        SwiftUI.Label(title, systemImage: icon)
     } else {
-        Text(L10n.tr(item.title))
+        Text(title)
     }
 }
 
