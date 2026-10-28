@@ -1,6 +1,6 @@
 import type { Bot } from '@shared/models'
 import type { HostClient } from '../client/host-client'
-import { placedBots, restoredBots, sectionMembers, sectionRename } from '../lib/roster-sections'
+import { chainedMoves, placedBots, restoredBots, sectionMembers, sectionRename, type SectionMove } from '../lib/roster-sections'
 
 /** A host call that, when refused, runs `undo` before the error shows; resolves to whether it went through. */
 type Perform = (op: (c: HostClient) => Promise<unknown>, undo: () => void) => Promise<boolean>
@@ -10,6 +10,8 @@ export class BotSections {
   private bots: () => Map<string, Bot>
   private changed: () => void
   private perform: Perform
+  /** Moves shown but not answered yet, oldest first. */
+  private pending: SectionMove[] = []
   constructor(bots: () => Map<string, Bot>, changed: () => void, perform: Perform) {
     this.bots = bots
     this.changed = changed
@@ -32,10 +34,19 @@ export class BotSections {
    * Shows bots `ids` in section `to` (none: undefined) before the host's bot events confirm it, then
    * sends `op`; a refusal takes back the moves nothing changed since. Resolves to whether the host accepted.
    */
-  private moveBots(ids: string[], to: string | undefined, op: (c: HostClient) => Promise<unknown>): Promise<boolean> {
+  private async moveBots(ids: string[], to: string | undefined, op: (c: HostClient) => Promise<unknown>): Promise<boolean> {
     const moves = ids.map((id) => ({ id, from: this.bots().get(id)?.section, to }))
+    this.pending.push(...moves)
     this.place(placedBots(this.bots(), ids, to))
-    return this.perform(op, () => this.place(restoredBots(this.bots(), moves)))
+    try {
+      return await this.perform(op, () => {
+        // A later move that started where a refused one put the bot now starts where the host still has it.
+        for (const move of moves) for (const later of chainedMoves(this.pending, move)) later.from = move.from
+        this.place(restoredBots(this.bots(), moves))
+      })
+    } finally {
+      this.pending = this.pending.filter((move) => !moves.includes(move))
+    }
   }
 
   private place(placed: [string, Bot][]) {

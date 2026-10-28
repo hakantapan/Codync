@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { foldsAfterRename, hostHasSections, limitSectionName, placedBots, restoredBots, rosterLines, sameRosterGroup, sectionMembers, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
+import { chainedMoves, foldsAfterRename, hostHasSections, limitSectionName, placedBots, restoredBots, rosterLines, sameRosterGroup, sectionMembers, sectionNames, sectionRename, shownRows, type RosterLine, type SectionMove } from './roster-sections.ts'
 
 const item = (id: string, section?: string, { lead = false, pinned = false, unread = 0 } = {}) => ({ id, bot: { lead, pinned, section, unread } })
 type Item = ReturnType<typeof item>
@@ -132,6 +132,52 @@ test('a bot deleted before the move shows or the refusal comes back stays delete
   const bots = computerBots({ id: 'a', unread: 0 })
   assert.deepEqual(placedBots(bots, ['gone', 'a'], 'Work'), [['a', { id: 'a', section: 'Work', unread: 0 }]])
   assert.deepEqual(restoredBots(bots, [{ id: 'gone', from: 'Work', to: undefined }]), [])
+})
+
+/** What `BotSections` does when `move` is refused while `pending` moves wait: rebases the later ones chained to it, then takes it back. */
+const refuse = (bots: Map<string, Placeable>, pending: SectionMove[], move: SectionMove) => {
+  for (const later of chainedMoves(pending, move)) later.from = move.from
+  apply(bots, restoredBots(bots, [move]))
+  pending.splice(pending.indexOf(move), 1)
+}
+
+test('chained moves refused in order end where the host still has the bot', () => {
+  // With the link down: a goes Work → Home, then Home → Side; both are refused after the wait.
+  const bots = computerBots({ id: 'a', section: 'Side', unread: 0 }, { id: 'b', section: 'Home', unread: 0 })
+  const first = { id: 'a', from: 'Work', to: 'Home' }
+  const second = { id: 'a', from: 'Home', to: 'Side' }
+  const other = { id: 'b', from: 'Home', to: 'Side' } // Another bot's move from Home is not chained.
+  const pending = [first, second, other]
+  assert.deepEqual(chainedMoves(pending, first), [second])
+  refuse(bots, pending, first)
+  assert.equal(bots.get('a')?.section, 'Side') // Moved again since: left alone.
+  assert.deepEqual(second, { id: 'a', from: 'Work', to: 'Side' })
+  assert.deepEqual(other, { id: 'b', from: 'Home', to: 'Side' })
+  refuse(bots, pending, second)
+  assert.equal(bots.get('a')?.section, 'Work') // Not Home, which the host never had.
+})
+
+test('chained moves refused out of order end where the host still has the bot', () => {
+  const bots = computerBots({ id: 'a', section: 'X', unread: 0 })
+  const moves = [{ id: 'a', from: 'Work', to: 'Home' }, { id: 'a', from: 'Home', to: 'Side' }, { id: 'a', from: 'Side', to: 'X' }]
+  const pending = [...moves]
+  refuse(bots, pending, moves[1]!)
+  refuse(bots, pending, moves[0]!)
+  assert.deepEqual(moves[2], { id: 'a', from: 'Work', to: 'X' })
+  refuse(bots, pending, moves[2]!)
+  assert.equal(bots.get('a')?.section, 'Work')
+})
+
+test('a refused rename followed by a refused move of one of its bots puts both bots back', () => {
+  const bots = computerBots({ id: 'w1', section: 'Side', unread: 0 }, { id: 'w2', section: 'Home', unread: 0 })
+  // Work renamed to Home, then w1 moved on to Side.
+  const rename = [{ id: 'w1', from: 'Work', to: 'Home' }, { id: 'w2', from: 'Work', to: 'Home' }]
+  const move = { id: 'w1', from: 'Home', to: 'Side' }
+  const pending = [...rename, move]
+  for (const m of rename) refuse(bots, pending, m)
+  assert.deepEqual([...bots.values()].map((bot) => bot.section), ['Side', 'Work'])
+  refuse(bots, pending, move)
+  assert.deepEqual([...bots.values()].map((bot) => bot.section), ['Work', 'Work'])
 })
 
 test('sections show only on hosts from 2.32.0, dev builds included', () => {

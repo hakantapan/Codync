@@ -109,6 +109,15 @@ export function restoredBots<T extends { section?: string }>(bots: ReadonlyMap<s
   })
 }
 
+/**
+ * The moves still waiting (`pending`, oldest first) that started where `refused` put its bot: later
+ * moves of the same bot from its `to`. They start where `refused` began instead, so taking one of
+ * them back too lands where the host still has the bot.
+ */
+export function chainedMoves(pending: readonly SectionMove[], refused: SectionMove): SectionMove[] {
+  return pending.slice(pending.indexOf(refused) + 1).filter((move) => move.id === refused.id && move.from === refused.to)
+}
+
 /** The most characters a section name may have, counted as the host counts them (code points). */
 const SECTION_NAME_LIMIT = 40
 
