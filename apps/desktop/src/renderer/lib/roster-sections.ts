@@ -82,11 +82,30 @@ export function sectionMembers(bots: Iterable<{ id: string; section?: string }>,
   return [...bots].filter((bot) => bot.section === name).map((bot) => bot.id)
 }
 
-/** The bots with these ids still there, each put in `section` (none: undefined) and otherwise as they are now: a section change shown, or a refused one taken back. */
+/** The bots with these ids still there, each put in `section` (none: undefined) and otherwise as they are now: a section change shown before the host confirms it. */
 export function placedBots<T extends { section?: string }>(bots: ReadonlyMap<string, T>, ids: readonly string[], section: string | undefined): [string, T][] {
   return ids.flatMap((id): [string, T][] => {
     const bot = bots.get(id)
     return bot ? [[id, { ...bot, section }]] : []
+  })
+}
+
+/** A section change shown before the host accepted it: bot `id` from section `from` to `to` (none: undefined). */
+export interface SectionMove {
+  id: string
+  from: string | undefined
+  to: string | undefined
+}
+
+/**
+ * Taking back `moves` the host refused: each bot still in the section its move put it in goes back to
+ * the one it left, otherwise as it is now. A bot moved again since (here or on another device) keeps
+ * its newer section, and a deleted one stays deleted.
+ */
+export function restoredBots<T extends { section?: string }>(bots: ReadonlyMap<string, T>, moves: readonly SectionMove[]): [string, T][] {
+  return moves.flatMap(({ id, from, to }): [string, T][] => {
+    const bot = bots.get(id)
+    return bot && bot.section === to ? [[id, { ...bot, section: from }]] : []
   })
 }
 

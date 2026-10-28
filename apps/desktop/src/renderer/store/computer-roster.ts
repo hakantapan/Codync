@@ -29,11 +29,12 @@ export function useComputerRoster(app: AppModel, shown: Set<string>) {
     toggleSection(name: string) {
       setFolded(toggled(folded, name))
     },
-    /** Renames or removes (null) a section on `store`'s computer; a folded one stays folded under its new name, on this device. */
+    /** Renames or removes (null) a section on `store`'s computer; once the host has done it, a folded one stays folded under its new name, on this device. */
     renameSection(store: BotStore, from: string, to: string | null) {
-      store.renameSection(from, to)
-      // Read now: a name dialog saves after the render that built its menu.
-      setFolded(foldsAfterRename(prefs.collapsedRosterSections.get(), from, sectionRename(from, to).to))
+      void store.renameSection(from, to).then((accepted) => {
+        // Read now, not from this render: the folds may have changed while the host answered.
+        if (accepted) setFolded(foldsAfterRename(prefs.collapsedRosterSections.get(), from, sectionRename(from, to).to))
+      })
     },
     move(id: string, target: string) {
       app.computerOrder.move(id, target, computers.map((c) => c.id))

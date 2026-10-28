@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { foldsAfterRename, hostHasSections, limitSectionName, placedBots, rosterLines, sameRosterGroup, sectionMembers, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
+import { foldsAfterRename, hostHasSections, limitSectionName, placedBots, restoredBots, rosterLines, sameRosterGroup, sectionMembers, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
 
 const item = (id: string, section?: string, { lead = false, pinned = false, unread = 0 } = {}) => ({ id, bot: { lead, pinned, section, unread } })
 type Item = ReturnType<typeof item>
@@ -99,9 +99,9 @@ const apply = (bots: Map<string, Placeable>, placed: [string, Placeable][]) => {
 
 test('a refused section change for one bot puts back only its section', () => {
   const bots = computerBots({ id: 'a', section: 'Work', unread: 0 }, { id: 'b', section: 'Work', unread: 0 })
-  const before = bots.get('a')?.section // setSection remembers it…
-  bots.set('a', { id: 'a', section: 'Home', unread: 3 }) // …shows the move, and a message arrives meanwhile.
-  const undo = placedBots(bots, ['a'], before)
+  apply(bots, placedBots(bots, ['a'], 'Home')) // setSection shows the move…
+  bots.set('a', { ...bots.get('a')!, unread: 3 }) // …and a message arrives meanwhile.
+  const undo = restoredBots(bots, [{ id: 'a', from: 'Work', to: 'Home' }])
   assert.deepEqual(undo, [['a', { id: 'a', section: 'Work', unread: 3 }]])
   apply(bots, undo)
   assert.deepEqual([...bots.values()], [{ id: 'a', section: 'Work', unread: 3 }, { id: 'b', section: 'Work', unread: 0 }])
@@ -114,13 +114,24 @@ test('a refused rename puts back exactly the bots it moved, not those already in
     assert.deepEqual(moved, ['w1', 'w2'])
     apply(bots, placedBots(bots, moved, to))
     assert.deepEqual([...bots.values()].map((bot) => bot.section), [to, 'Home', to, undefined])
-    apply(bots, placedBots(bots, moved, 'Work'))
+    apply(bots, restoredBots(bots, moved.map((id) => ({ id, from: 'Work', to }))))
     assert.deepEqual([...bots.values()].map((bot) => bot.section), ['Work', 'Home', 'Work', undefined])
   }
 })
 
-test('a bot deleted before the refusal comes back stays deleted', () => {
-  assert.deepEqual(placedBots(computerBots({ id: 'a', unread: 0 }), ['gone', 'a'], 'Work'), [['a', { id: 'a', section: 'Work', unread: 0 }]])
+test('a refused move leaves a bot moved again since where it is now', () => {
+  const bots = computerBots({ id: 'a', section: 'Side', unread: 0 }, { id: 'b', unread: 0 }, { id: 'c', section: 'Home', unread: 0 })
+  // a went Work → Home, then on to Side; b Work → Home, then out of sections on another device; c is still where its move put it.
+  const moves = ['a', 'b', 'c'].map((id) => ({ id, from: 'Work', to: 'Home' }))
+  assert.deepEqual(restoredBots(bots, moves), [['c', { id: 'c', section: 'Work', unread: 0 }]])
+  // A refused removal: only a bot still in no section goes back.
+  assert.deepEqual(restoredBots(bots, [{ id: 'a', from: 'Work', to: undefined }, { id: 'b', from: 'Work', to: undefined }]), [['b', { id: 'b', section: 'Work', unread: 0 }]])
+})
+
+test('a bot deleted before the move shows or the refusal comes back stays deleted', () => {
+  const bots = computerBots({ id: 'a', unread: 0 })
+  assert.deepEqual(placedBots(bots, ['gone', 'a'], 'Work'), [['a', { id: 'a', section: 'Work', unread: 0 }]])
+  assert.deepEqual(restoredBots(bots, [{ id: 'gone', from: 'Work', to: undefined }]), [])
 })
 
 test('sections show only on hosts from 2.32.0, dev builds included', () => {

@@ -15,7 +15,7 @@ import {
 } from '@shared/models'
 import type { CallLine } from '@shared/calls'
 import type { HostClient } from '../client/host-client'
-import { placedBots, sectionMembers, sectionRename } from '../lib/roster-sections'
+import { placedBots, restoredBots, sectionMembers, sectionRename } from '../lib/roster-sections'
 import { readSharedFile } from '../../shared/files.ts'
 import { FileDownloads } from './file-downloads'
 import { BotSync, sleep } from './bot-sync'
@@ -289,35 +289,41 @@ export class BotStore extends BotSync {
     this.perform((c) => c.call('markRead', { botId }), true)
   }
 
-  private patchBot(bot: Bot, change: Partial<BotDraft>, undo?: () => void) {
+  private patchBot(bot: Bot, change: Partial<BotDraft>) {
     const current = this.bots.get(bot.id)
-    // Normalized, so a cleared section (null) reads as none.
-    if (current) this.bots.set(bot.id, normalizeBot({ ...current, ...change } as Bot))
+    if (current) this.bots.set(bot.id, { ...current, ...change } as Bot)
     this.changed()
-    this.perform((c) => c.call('updateBot', { ...updatePayload(current ?? bot), ...change }), true, undo)
+    this.perform((c) => c.call('updateBot', { ...updatePayload(bot), ...change }), true)
   }
 
   setPinned(bot: Bot, pinned: boolean) {
     this.patchBot(bot, { pinned })
   }
 
-  /** Puts the bot in roster section `name`, or takes it out of its section (null), shown at once and taken back if the host refuses the name. */
+  /** Puts the bot in roster section `name`, or takes it out of its section (null). Sends only the section, so a setting changed on another device meanwhile stays. */
   setSection(bot: Bot, name: string | null) {
-    const before = this.bots.get(bot.id)?.section
-    this.patchBot(bot, { section: name?.trim() || null }, () => this.place([bot.id], before))
+    const section = name?.trim() || null
+    void this.moveToSection([bot.id], section ?? undefined, (c) => c.call('updateBot', { id: bot.id, section }))
   }
 
-  /** Renames a section on this computer (onto another one's name merges them); null removes it, its bots stay. */
-  renameSection(from: string, to: string | null) {
+  /** Renames a section on this computer (onto another one's name merges them); null removes it, its bots stay. Resolves to whether the host did it. */
+  renameSection(from: string, to: string | null): Promise<boolean> {
     const rename = sectionRename(from, to)
-    const moved = sectionMembers(this.bots.values(), from)
-    this.place(moved, rename.to ?? undefined)
-    this.perform((c) => c.call('renameSection', rename), true, () => this.place(moved, from))
+    return this.moveToSection(sectionMembers(this.bots.values(), from), rename.to ?? undefined, (c) => c.call('renameSection', rename))
   }
 
-  /** Shows the bots in roster section `section` (none: undefined) before the host's bot events confirm it. */
-  private place(ids: string[], section: string | undefined) {
-    for (const [id, bot] of placedBots(this.bots, ids, section)) this.bots.set(id, bot)
+  /**
+   * Shows bots `ids` in section `to` (none: undefined) before the host's bot events confirm it, then
+   * sends `op`; a refusal takes back the moves nothing changed since. Resolves to whether the host accepted.
+   */
+  private moveToSection(ids: string[], to: string | undefined, op: (c: HostClient) => Promise<unknown>): Promise<boolean> {
+    const moves = ids.map((id) => ({ id, from: this.bots.get(id)?.section, to }))
+    this.place(placedBots(this.bots, ids, to))
+    return this.perform(op, true, () => this.place(restoredBots(this.bots, moves)))
+  }
+
+  private place(placed: [string, Bot][]) {
+    for (const [id, bot] of placed) this.bots.set(id, bot)
     this.changed()
   }
 
