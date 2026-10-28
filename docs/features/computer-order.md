@@ -56,7 +56,10 @@ control character. The roster shows the lead and pinned rows first, then each se
 sorted by name (the way the device's language sorts; the terminal UI sets case and accents aside but
 has no per-language rules, so Swedish "å" sorts as "a" there), then rows in no section (under a "Bots"
 label when there are sections); inside a section rows keep the order above. A section exists while
-a bot is in it. The lead stays on top, outside sections, and its menus offer no Move to section. A
+a bot is in it. A bot's menu has Move to section and a section header's menu has Rename section and
+Remove section, offered only for a host at 2.32.0 or newer; the apps show the change at once and put
+it back when the host refuses it. The lead stays on top, outside sections, and its menus offer no
+Move to section. A
 pinned bot keeps its section and shows in it again once unpinned; hidden bots keep
 theirs. Each device folds sections for itself, by name: renaming or removing a folded section on
 this device takes its fold along (a merge folds the section it joins; an unfolded section changes

@@ -8,8 +8,8 @@ same change. "Folder" is not used for this anywhere: it already means a bot's pr
 ## What the user sees
 
 ```
-BOTS
-  📌 Assistant              pinned rows stay on top, outside sections
+  ★ Assistant               the lead bot: always first, outside sections
+  📌 Reviewer               pinned rows next, also outside sections
 ▾ Personal (2)
     🤖 Notes Bot
     🤖 Mail Bot
@@ -19,18 +19,21 @@ Bots                        a plain label (no fold, count or menu), only when th
 ```
 
 - A bot or group chat is in at most one section, or none.
-- **Order:** pinned rows, then sections sorted by name (locale-aware, so "İş" sorts as Turkish
-  expects), then rows without a section, under a "Bots" label when there are sections. Inside a section rows keep the roster order (position,
-  then recent activity).
+- **Order:** the lead bot, then pinned rows, then sections sorted by name (the way the device's
+  language sorts, so "İş" sorts as Turkish expects; the terminal sets case and accents aside), then
+  rows without a section, under a "Bots" label when there are sections. Inside a section rows keep
+  the roster order (position, then recent activity).
 - **Row menu:** "Move to section ▸" lists the existing sections, "New section…" and "Remove from
-  section". **Header menu:** "Rename section…" and "Remove section" (its bots stay, without a
-  section).
+  section"; the lead bot has none. **Header menu:** "Rename section…" and "Remove section" (its
+  bots stay, without a section).
 - A section exists while a bot is in it: moving its last bot out removes the header.
 - A pinned bot keeps its section and shows in it again once unpinned.
 - Tapping a header folds or unfolds it (animated, `Motion`). Folded state is per device, not
-  synced.
-- Dragging moves a bot only among bots with the same pin state; an unpinned bot also stays in its
-  section (pinned rows show no sections, so pinned bots reorder among all pinned bots).
+  synced; renaming or removing a folded section on this device takes its fold along.
+- Dragging moves a bot only within its band: the lead can't be dragged and nothing drops above it;
+  pinned bots reorder among all pinned bots (pinned rows show no sections); an unpinned bot also
+  stays in its section.
+- Moves and renames show at once; one the host refuses is put back.
 - Hidden bots keep their section.
 
 Not in this change: dropping a bot onto a section by drag, reordering sections by drag, nested
@@ -53,24 +56,25 @@ sections.
 - Analytics: `bot_updated` lists `section` among changed fields; `renameSection` gets an event
   (`analytics/observe.rs`, `docs/reference/analytics-events.md`). Names are never sent.
 - Compatibility: additive (a new optional field and a new method), so `MIN_APP` / `MIN_HOST` stay.
-  Clients show the section controls only when the host's version (from `hello`) is at least the
-  release that ships this (2.24.0 at the time of writing).
+  Clients show the section controls only when the host's version (from `hello`) is at least
+  2.32.0, the release that ships this.
 
 ## Clients
 
-Each client gets one pure function that turns the sorted roster into lines (pinned rows, section
-headers with their rows, the "Bots" label, rows without a section) and is unit-tested. The drag guards compare pin
-state, and for unpinned bots the section too.
+Each client gets one pure function that turns the sorted roster into lines (the lead and pinned
+rows, section headers with their rows, the "Bots" label, rows without a section) and is
+unit-tested. The drag guards compare the band (lead, pinned, the rest), and for unpinned bots the
+section too.
 
 | Client | Model | Header | Menus | Name entry | Folded state |
 |---|---|---|---|---|---|
 | Desktop | `shared/models.ts` `Bot.section`, `normalizeBot` | modeled on `ComputerRosterSection` | `botActions` (`ChatWindow.tsx`) + header menu, `AnchoredMenu` | `Dialog` | `prefs.ts`, `collapsedRosterSections` |
-| iPhone | `Models.swift` `Bot.section: String?`; `BotUpdate` encodes `nil` explicitly to clear | modeled on `ComputerSection` | system `contextMenu` submenu (`.contextActions`) | `.codyncDialog` | `@AppStorage("collapsedRosterSections")` |
-| Android | `HostClient.kt` `Bot.section`; `BotDraft.template()` leaves it out | `design` `Disclosure` | `contextActions` | `CodyncDialog` | `SharedPreferences` |
-| Terminal | `tui/app/model.rs` `Bot.section` | labels beside `PINNED` / `BOTS` in `view/roster.rs` | keys, listed in `view/help.rs` | inline prompt | in memory |
+| iPhone | `Bot.swift` `Bot.section: String?`; `HostClient.setSection` sends `null` to clear | modeled on `ComputerSection` | system `contextMenu` submenu (`.contextActions`) | `.codyncDialog` | `@AppStorage("collapsedRosterSections")` |
+| Android | `HostClient.kt` `Bot.section`; `BotDraft.template()` leaves it out | modeled on iOS `ComputerSection` (`RosterSectionViews.kt`) | `contextActions` | `CodyncDialog` | `SharedPreferences` |
+| Terminal | `tui/app/bot.rs` `Bot.section` | labels beside `PINNED` / `BOTS` in `view/roster.rs` | keys, listed in `view/help.rs` | `section_fields` sheet (`manage/fields.rs`) | in memory |
 
-Desktop drag guards: `makeRoom` (`BotRoster.tsx`) and `moveBot` (`store/computer-roster.ts`);
-iPhone `BotStore.move`; Android `moved()`; terminal `reorder_bot`. The desktop demo host
+Desktop drag guards: `makeRoom` (`BotRoster.tsx`) and `moveBot` (`store/computer-roster.ts`), both
+through `sameRosterGroup` (`lib/roster-sections.ts`); iPhone `BotStore.move` and `BotStore.drop`; Android `moved()`; terminal `reorder_bot`. The desktop demo host
 (`demo/fake-host.ts`) handles `renameSection`.
 
 ## Tests
@@ -85,6 +89,8 @@ iPhone `BotStore.move`; Android `moved()`; terminal `reorder_bot`. The desktop d
 
 ## Release
 
-Minor bump (new feature and protocol addition), version files per the
-[versioning rules](../../CLAUDE.md). Update [bot order](../features/computer-order.md#bot-order) and
-the scope table in [remote relay](../reference/remote-relay.md) for `renameSection`.
+No version bump in this change: feature PRs don't bump product versions
+([Android app](../../apps/android/README.md)). The maintainer's next release (2.32.0) carries it, and
+clients gate the section controls on a 2.32.0 host. [Bot order](../features/computer-order.md#bot-order)
+and the scope table in [remote relay](../reference/remote-relay.md) cover `renameSection`; release
+notes go in the PR's *What's New* bullets.
