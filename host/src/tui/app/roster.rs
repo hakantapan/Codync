@@ -6,11 +6,12 @@ use std::collections::HashSet;
 
 use icu_normalizer::DecomposingNormalizerBorrowed;
 
+use super::super::l10n::tr;
 use super::super::manage::{Submit, section_fields};
 use super::{App, Bot, Click, Overlay};
 
 /// The first host with roster sections (`section`, `renameSection`).
-const SECTIONS_SINCE: &str = "2.24.0";
+const SECTIONS_SINCE: &str = "2.32.0";
 
 /// One line of the roster.
 pub enum RosterLine<'a> {
@@ -238,7 +239,9 @@ impl App {
         }
         let supported = crate::compat::at_least(&self.host_version, SECTIONS_SINCE);
         if !supported {
-            let why = format!("Update Codync on {}: sections need {SECTIONS_SINCE} or newer.", self.host);
+            let why = tr("Update Codync on {host}: sections need {version} or newer.")
+                .replace("{host}", &self.host)
+                .replace("{version}", SECTIONS_SINCE);
             self.flash(&why);
         }
         supported
@@ -300,7 +303,7 @@ mod tests {
         assert_eq!(shown(&app), ["l", "▾ Work (1)", "w", "BOTS", "x"]);
         add(&mut app, "p", true, None, 3, 0);
         assert_eq!(shown(&app), ["l", "PINNED", "p", "▾ Work (1)", "w", "BOTS", "x"]);
-        app.host_version = "2.24.0".into();
+        app.host_version = "2.32.0".into();
         app.selected = Some("l".into());
         app.ask_section();
         assert!(app.overlays.is_empty(), "the lead goes in no section");
@@ -421,10 +424,16 @@ mod tests {
         app.ask_section();
         assert!(app.overlays.is_empty(), "no hello yet: the host's version is unknown");
         assert_eq!(app.hint.as_ref().map(|(s, _)| s.as_str()), Some("Still connecting: try again in a moment."));
-        app.host_version = "2.23.0".into();
+        app.host = "test".into();
+        app.host_version = "2.31.2".into();
         app.ask_section();
         assert!(app.overlays.is_empty(), "an older host would drop the name");
-        app.host_version = "2.24.0".into();
+        let why = app.hint.as_ref().map(|(s, _)| s.as_str());
+        assert_eq!(why, Some("Update Codync on test: sections need 2.32.0 or newer."));
+        app.host_version = "2.32.1-dev".into();
+        app.ask_section();
+        assert!(matches!(app.overlays.pop(), Some(Overlay::Fields(_))), "a dev build after it has them");
+        app.host_version = "2.32.0".into();
         app.ask_section();
         let Some(Overlay::Fields(f)) = app.overlays.last() else { panic!("the section prompt") };
         assert_eq!((f.title.as_str(), f.inputs[0].ed.text.as_str()), ("Move to section", "Work"));
