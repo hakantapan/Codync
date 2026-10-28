@@ -18,6 +18,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::{broadcast, watch};
 
+mod groups;
 mod order;
 mod patch;
 mod reactions;
@@ -206,22 +207,6 @@ impl Hub {
         self.store.bot(id).ok().flatten().map_or_else(|| "A deleted bot".into(), |b| b.config.name)
     }
 
-    /// A group is busy while one of its members works in it: that member's status and activity.
-    pub fn group_runtime(&self, group: &BotConfig) -> Runtime {
-        let busy = {
-            let runtime = self.runtime.locked();
-            group.members.iter().find_map(|m| {
-                let r = runtime.get(m)?;
-                (r.status != BotStatus::Idle && r.lane.as_ref().is_some_and(|l| l.chat == group.id))
-                    .then(|| (m.clone(), r.clone()))
-            })
-        };
-        let Some((member, mut r)) = busy else { return Runtime::default() };
-        let name = self.bot_name(&member);
-        r.activity = if r.activity.is_empty() { name } else { format!("{name}: {}", r.activity) };
-        r
-    }
-
     pub fn create_bot(self: &Arc<Self>, mut cfg: BotConfig) -> Result<Value> {
         cfg.id = uuid::Uuid::new_v4().to_string();
         cfg.created_at = crate::store::now_ms();
@@ -316,27 +301,7 @@ impl Hub {
                 }
             }
         });
-        // A deleted bot leaves its groups; what it said there stays. Each group is read again under the
-        // lock, so an edit or a section rename since this scan isn't written back.
-        let groups: Vec<String> =
-            self.store.bots()?.into_iter().filter(|r| !r.deleted && r.config.is_group()).map(|r| r.config.id).collect();
-        for group in groups {
-            let left = {
-                let _g = self.emit_lock.locked();
-                match self.store.bot(&group)?.filter(|r| !r.deleted) {
-                    Some(mut row) if row.config.members.iter().any(|m| m == id) => {
-                        row.config.members.retain(|m| m != id);
-                        self.store.save_bot(&row.config)?;
-                        true
-                    }
-                    _ => false,
-                }
-            };
-            if left {
-                self.emit_bot(&group);
-            }
-        }
-        Ok(())
+        self.leave_groups(id)
     }
 
     /// Marks what the user has seen as read. Nothing unread there is a no-op, so clients

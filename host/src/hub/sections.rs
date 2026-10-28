@@ -95,24 +95,4 @@ mod tests {
         assert!(["a", "b", "c", "d"].into_iter().all(|id| section(id).is_none()), "removed; its bots stay");
         std::fs::remove_dir_all(&dir).unwrap();
     }
-
-    #[tokio::test]
-    async fn a_deleted_bot_leaves_its_groups_and_they_keep_their_latest_section() {
-        let dir = std::env::temp_dir().join(format!("codync-sections-{}", uuid::Uuid::new_v4()));
-        std::fs::create_dir_all(&dir).unwrap();
-        let store = Store::open(std::path::Path::new(":memory:")).unwrap();
-        let hub = Hub::new(store, "sections-test".into(), Identity::load_or_create(&dir).unwrap(), "test".into(), 0);
-        for v in [
-            json!({"id": "a", "name": "a", "backend": "claude", "cwd": "/tmp"}),
-            json!({"id": "b", "name": "b", "backend": "claude", "cwd": "/tmp"}),
-            json!({"id": "g", "name": "g", "kind": "group", "members": ["a", "b"], "section": "Work"}),
-        ] {
-            hub.store.save_bot(&serde_json::from_value::<BotConfig>(v).unwrap()).unwrap();
-        }
-        hub.rename_section("Work", Some("Play")).unwrap();
-        hub.delete_bot("a").unwrap();
-        let group = hub.store.bot("g").unwrap().unwrap().config;
-        assert_eq!((group.members, group.section.as_deref()), (vec!["b".to_owned()], Some("Play")));
-        std::fs::remove_dir_all(&dir).unwrap();
-    }
 }
