@@ -52,10 +52,11 @@ struct BotListView: View {
     /// new name, on this device, at once. A refusal puts the folds back, unless one was folded or
     /// unfolded meanwhile.
     private func renameSection(_ name: String, to newName: String?, on store: BotStore) {
-        let before = foldedSections
-        let moved = RosterSection.folds(before, renaming: name, to: newName)
-        foldedSections = moved
         Task {
+            // Right before the call, which moves the bots before it waits: one update shows both.
+            let before = foldedSections
+            let moved = RosterSection.folds(before, renaming: name, to: newName)
+            foldedSections = moved
             if await store.renameSection(from: name, to: newName) { return }
             foldedSections = RosterSection.folds(foldedSections, refused: moved, before: before)
         }

@@ -56,14 +56,13 @@ extension BotStore {
         }
     }
 
-    /// Fire-and-forget actions; only what waiting and retrying couldn't settle reaches the dialog,
-    /// after `undo` takes back what the action already showed.
-    private func perform(replay: Bool = false, undo: @escaping @MainActor () -> Void = {},
-                         _ op: @escaping @MainActor (HostClient) async throws -> Void) {
-        Task { await attempt(replay: replay, undo: undo, op) }
+    /// Fire-and-forget actions; only what waiting and retrying couldn't settle reaches the dialog.
+    private func perform(replay: Bool = false, _ op: @escaping @MainActor (HostClient) async throws -> Void) {
+        Task { await attempt(replay: replay, op) }
     }
 
-    /// `perform` for a caller that waits: whether the computer took it.
+    /// `perform` for a caller that waits: whether the computer took it. A refusal runs `undo`, taking
+    /// back what the action already showed, before it reaches the dialog.
     @discardableResult
     private func attempt(replay: Bool = false, undo: @MainActor () -> Void = {},
                          _ op: @MainActor (HostClient) async throws -> Void) async -> Bool {
@@ -287,11 +286,8 @@ extension BotStore {
     /// Puts the bot in `section` (nil: out of its own), shown at once and taken back if the
     /// computer refuses the name (it allows 40 characters, no control characters).
     public func setSection(_ bot: Bot, to section: String?) {
-        let before = bots[bot.id]?.section
-        place([bot.id], in: section)
-        perform(replay: true, undo: { self.takeBack([bot.id], from: section, to: before) }) {
-            try await $0.setSection(bot.id, to: section)
-        }
+        let moves = show([bot.id], in: section)
+        Task { await send(moves) { try await $0.setSection(bot.id, to: section) } }
     }
 
     /// Moves every bot of this computer in section `name` to `newName` (a name already in use
@@ -299,22 +295,27 @@ extension BotStore {
     /// computer took it: a refusal is taken back and shown.
     @discardableResult
     public func renameSection(from name: String, to newName: String?) async -> Bool {
-        let moved = bots.values.filter { $0.section == name }.map(\.id)
-        place(moved, in: newName)
-        return await attempt(replay: true, undo: { takeBack(moved, from: newName, to: name) }) {
-            try await $0.renameSection(from: name, to: newName)
-        }
+        let moves = show(bots.values.filter { $0.section == name }.map(\.id), in: newName)
+        return await send(moves) { try await $0.renameSection(from: name, to: newName) }
     }
 
-    /// Shows the bots in `section` before the computer confirms it; its `bot` events follow.
-    private func place(_ ids: [String], in section: String?) {
+    /// Shows the bots `ids` in `section` before the computer confirms it (its `bot` events follow),
+    /// each move kept as pending until it's answered.
+    private func show(_ ids: [String], in section: String?) -> [SectionMove] {
+        let moves = ids.map { SectionMove(bot: $0, from: bots[$0]?.section, to: section) }
+        pendingSectionMoves += moves
         Motion.animate { for id in ids { bots[id]?.section = section } }
+        return moves
     }
 
-    /// Takes back a refused `place`: the bots still in `shown` return to `section`; one a newer
-    /// change moved meanwhile (another device's) stays where that put it.
-    private func takeBack(_ ids: [String], from shown: String?, to section: String?) {
-        place(ids.filter { bots[$0]?.section == shown }, in: section)
+    /// Sends `op` for the `moves` shown; a refusal takes back each one nothing changed since.
+    private func send(_ moves: [SectionMove], _ op: @MainActor (HostClient) async throws -> Void) async -> Bool {
+        let ids = Set(moves.map(\.id))
+        defer { pendingSectionMoves.removeAll { ids.contains($0.id) } }
+        return await attempt(replay: true, undo: {
+            let back = RosterSection.takeBack(ids, pending: &pendingSectionMoves, sections: bots.compactMapValues(\.section))
+            Motion.animate { for (id, section) in back { bots[id]?.section = section } }
+        }, op)
     }
 
     public func delete(_ bot: Bot) {

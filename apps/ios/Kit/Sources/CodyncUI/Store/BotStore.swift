@@ -107,6 +107,8 @@ public final class BotStore {
     var retired = false
     /// Files of messages not delivered yet (by client nonce), kept for a retry.
     @ObservationIgnored var outgoingFiles: [String: [OutgoingFile]] = [:]
+    /// Section moves shown but not answered yet, oldest first.
+    @ObservationIgnored var pendingSectionMoves: [SectionMove] = []
 
     var rev: Int64 = 0
     var hostId: String?

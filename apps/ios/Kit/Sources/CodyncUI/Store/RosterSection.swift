@@ -46,6 +46,25 @@ public struct RosterSection: Sendable {
         return names
     }
 
+    /// Taking back the refused moves `refused` (desktop `restoredBots` and `chainedMoves`): each bot
+    /// still in the section its move put it in (`sections`: each bot's, if it's in one) goes back
+    /// to where that move began, as `pending` (oldest first) has it now. A bot moved since (here or on
+    /// another device) keeps its newer section. Each later pending move of the same bot that began
+    /// where a refused one put it now begins where that one did, so taking it back too lands where
+    /// the computer still has the bot.
+    static func takeBack(_ refused: Set<UUID>, pending: inout [SectionMove],
+                         sections: [String: String]) -> [(bot: String, section: String?)] {
+        var back: [(bot: String, section: String?)] = []
+        for i in pending.indices where refused.contains(pending[i].id) {
+            let move = pending[i]
+            if sections[move.bot] == move.to { back.append((move.bot, move.from)) }
+            for later in pending.indices.dropFirst(i + 1) where pending[later].bot == move.bot && pending[later].from == move.to {
+                pending[later].from = move.from
+            }
+        }
+        return back
+    }
+
     /// This device's folded sections after the computer refused a rename that changed them from
     /// `before` to `set`: `before` again, unless they changed since (a section folded meanwhile).
     public static func folds(_ current: Set<String>, refused set: Set<String>, before: Set<String>) -> Set<String> {
@@ -79,6 +98,15 @@ public struct RosterSection: Sendable {
         if !bySection.isEmpty && !loose.isEmpty { lines.append(.label) }
         return lines + loose.map { RosterSectionLine.bot($0) }
     }
+}
+
+/// A section change shown before the computer took it: bot `bot` from section `from` to `to` (nil:
+/// none); `id` tells it from another move of the same bot.
+struct SectionMove: Sendable {
+    let id = UUID()
+    let bot: String
+    var from: String?
+    let to: String?
 }
 
 /// One row of a computer's roster split into sections; `label` is the "Bots" label over the bots in none.

@@ -176,21 +176,54 @@ private func rosterBot(_ id: String, pinned: Bool = false, lead: Bool = false, h
     #expect(store.bots["c"]?.section == "Home")
 }
 
-@MainActor @Test func aRefusedSectionChangeKeepsWhatAnotherDeviceMovedMeanwhile() async throws {
-    let (store, done) = try rosterStore([rosterBot("a"), rosterBot("b", section: "Work"), rosterBot("c", section: "Work")])
+@MainActor @Test func aRefusedRenameKeepsWhatAnotherDeviceMovedMeanwhile() async throws {
+    let (store, done) = try rosterStore([rosterBot("b", section: "Work"), rosterBot("c", section: "Work")])
     defer { done() }
-    // Both calls wait for the link (the store never connects).
-    store.setSection(try #require(store.bots["a"]), to: "Work")
-    let rename = Task { await store.renameSection(from: "Work", to: "Jobs") }
+    let rename = Task { await store.renameSection(from: "Work", to: "Jobs") } // Waits for the link (the store never connects).
     #expect(await until { store.sections == ["Jobs"] })
-    // Another device moves two of them; then the computer turns this phone's changes away.
-    store.bots["a"]?.section = "Home"
-    store.bots["b"]?.section = "Home"
+    store.bots["b"]?.section = "Home" // Another device moves one; then the computer turns the rename away.
     store.connection = .unauthorized("No access")
     #expect(await rename.value == false)
-    #expect(store.bots["a"]?.section == "Home")
     #expect(store.bots["b"]?.section == "Home")
     #expect(store.bots["c"]?.section == "Work") // Still where the refused rename put it: taken back.
+}
+
+@MainActor @Test func aRefusedMoveKeepsWhatAnotherDeviceMovedMeanwhile() async throws {
+    let (store, done) = try rosterStore([rosterBot("a")])
+    defer { done() }
+    store.setSection(try #require(store.bots["a"]), to: "Work") // Waits for the link.
+    store.bots["a"]?.section = "Home" // Another device moves it; then the computer turns the move away.
+    store.connection = .unauthorized("No access")
+    #expect(await until { store.lastError != nil }) // The undo has run.
+    #expect(store.bots["a"]?.section == "Home")
+    #expect(store.pendingSectionMoves.isEmpty)
+}
+
+/// Bot "x" through `moves` shown one after another, then each refused in `order` (indices into
+/// `moves`), as `BotStore` takes them back: where "x" ends up.
+private func refused(_ moves: [SectionMove], in order: [Int]) -> String? {
+    var pending = moves, section = moves.last?.to
+    for i in order {
+        let back = RosterSection.takeBack([moves[i].id], pending: &pending, sections: section.map { ["x": $0] } ?? [:])
+        for (_, to) in back { section = to }
+        pending.removeAll { $0.id == moves[i].id }
+    }
+    return section
+}
+
+@Test func refusedMovesInARowGoBackToWhereTheComputerHasTheBot() {
+    let toHome = SectionMove(bot: "x", from: "Work", to: "Home"), toSide = SectionMove(bot: "x", from: "Home", to: "Side")
+    #expect(refused([toHome, toSide], in: [0, 1]) == "Work") // In order: not left in Home.
+    #expect(refused([toHome, toSide], in: [1, 0]) == "Work") // Out of order.
+    #expect(refused([toHome, toSide], in: [0]) == "Side") // The later move went through.
+    #expect(refused([toHome, toSide], in: [1]) == "Home") // The earlier one did.
+    // A rename (Work → Jobs), then the bot moved on to Side; both refused, either way round.
+    let rename = SectionMove(bot: "x", from: "Work", to: "Jobs"), toSideAfter = SectionMove(bot: "x", from: "Jobs", to: "Side")
+    #expect(refused([rename, toSideAfter], in: [0, 1]) == "Work")
+    #expect(refused([rename, toSideAfter], in: [1, 0]) == "Work")
+    // Out of a section (nil) and into another, both refused.
+    let out = SectionMove(bot: "x", from: "Work", to: nil), into = SectionMove(bot: "x", from: nil, to: "Side")
+    #expect(refused([out, into], in: [0, 1]) == "Work")
 }
 
 @MainActor @Test func aRenameTheComputerTakesReportsIt() async throws {
