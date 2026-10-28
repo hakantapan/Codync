@@ -93,4 +93,5 @@ No version bump in this change: feature PRs don't bump product versions
 ([Android app](../../apps/android/README.md)). The maintainer's next release (2.32.0) carries it, and
 clients gate the section controls on a 2.32.0 host. [Bot order](../features/computer-order.md#bot-order)
 and the scope table in [remote relay](../reference/remote-relay.md) cover `renameSection`; release
-notes go in the PR's *What's New* bullets.
+notes go in the PR's `## What's New: iPhone` and `## What's New: Android` sections, as `### zh-Hant` and
+`### en-US` bullets (what `tools/store_release.py` reads when a release has no WhatsNew.md section).
