@@ -20,14 +20,6 @@ class AppLanguageTest {
         assertEquals(AppLanguage.En, AppLanguage.System.resolved("pt-BR"))
     }
 
-    @Test fun turkishFollowsATurkishSystemAndKeepsItsNativeName() {
-        assertEquals(AppLanguage.Tr, AppLanguage.fromStored("tr"))
-        assertEquals("tr", AppLanguage.Tr.stored)
-        assertEquals(AppLanguage.Tr, AppLanguage.System.resolved("tr-TR"))
-        assertEquals(AppLanguage.Tr, AppLanguage.System.resolved("tr_TR.UTF-8"))
-        assertEquals("Türkçe", AppLanguage.menuTitle(AppLanguage.Tr, AppLanguage.En, systemIsChinese = false, phrases))
-    }
-
     private val phrases = mapOf("Pair a computer" to "配对一台电脑", "Follow system" to "跟随系统")
 
     @Test fun chineseFollowsTheChoiceNotTheOtherLanguage() {

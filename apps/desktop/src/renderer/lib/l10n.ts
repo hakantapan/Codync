@@ -52,7 +52,7 @@ export function resolvedLanguage(preference: AppLanguage, system: string | boole
   const tag = languageTag(system).toLowerCase().replaceAll('_', '-').split('.')[0]
   const base = tag.split('-')[0]
   if (base === 'zh') return systemScript(tag) === 'hant' ? 'zh-Hant' : 'zh'
-  return ['ja', 'ko', 'fr', 'de', 'es', 'tr'].includes(base) ? base as 'ja' | 'ko' | 'fr' | 'de' | 'es' | 'tr' : 'en'
+  return Object.hasOwn(catalogs, base) ? base as keyof typeof catalogs : 'en'
 }
 
 const catalogs: Record<Exclude<AppLanguage, 'system'>, Record<string, string>> = {

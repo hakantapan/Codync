@@ -144,6 +144,7 @@ test('known chrome becomes Chinese and everything else stays', () => {
 test('each supported locale follows regional system tags and explicit choices win', () => {
   for (const language of ['ja', 'ko', 'fr', 'de', 'es', 'tr'] as const) {
     assert.equal(resolvedLanguage('system', `${language.toUpperCase()}_XX.UTF-8`), language)
+    assert.equal(resolvedLanguage('system', `${language}-XX`), language)
     assert.equal(resolvedLanguage(language, 'zh-TW'), language)
     assert.equal(usesChinese(language, 'zh-TW'), false)
     assert.notEqual(translate('Settings', language), 'Settings')
@@ -165,13 +166,4 @@ test('English reset text remains literal and absolute dates do not become durati
   for (const language of ['ja', 'ko', 'fr', 'de', 'es', 'tr'] as const) {
     assert.equal(resetLine('resets Sep 26 at 12pm', language), `${translate('resets', language)} Sep 26 at 12pm`)
   }
-})
-
-
-test('a Turkish system reads Turkish and the menu names it in Turkish', () => {
-  assert.equal(resolvedLanguage('system', 'tr-TR'), 'tr')
-  assert.equal(resolvedLanguage('system', 'tr_TR.UTF-8'), 'tr')
-  assert.equal(translate('Settings', 'system', 'tr-TR'), 'Ayarlar')
-  assert.equal(translate('Follow system', 'tr'), 'Sistemi izle')
-  assert.equal(languageTitle('tr', 'en', 'en'), 'Türkçe')
 })

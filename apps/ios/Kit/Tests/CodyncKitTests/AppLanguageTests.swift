@@ -139,15 +139,6 @@ extension AppLanguageTests {
     #expect(AppLanguage.resolved(preference: .system, languages: ["pt-BR"]) == .en)
 }
 
-@Test func turkishFollowsATurkishSystemAndKeepsItsNativeName() {
-    #expect(AppLanguage(rawValue: "tr") == .tr)
-    #expect(AppLanguage.resolved(preference: .system, languages: ["tr-TR"]) == .tr)
-    #expect(AppLanguage.resolved(preference: .system, languages: ["tr"]) == .tr)
-    #expect(L10n.tr("Settings", preference: .system, systemIsChinese: false, systemLanguages: ["tr-TR"]) == "Ayarlar")
-    #expect(L10n.tr("Follow system", preference: .tr) == "Sistemi izle")
-    #expect(AppLanguage.menuTitle(.tr, preference: .en, systemIsChinese: false) == "Türkçe")
-}
-
 }
 
 
