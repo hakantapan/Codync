@@ -209,8 +209,9 @@ class AppStore(application: Application) : AndroidViewModel(application) {
         @Suppress("UNREACHABLE_CODE") error("Unreachable")
     }
 
-    internal fun action(key: String, operation: suspend () -> Unit) {
-        if (state.value.loading || key in state.value.busy) return
+    /** Runs [operation] as [key], its error shown; not while loading or while [key] still runs. Whether it started. */
+    internal fun action(key: String, operation: suspend () -> Unit): Boolean {
+        if (state.value.loading || key in state.value.busy) return false
         mutableState.update { it.copy(busy = it.busy + key, error = null) }
         val job = contextScope.launch(start = CoroutineStart.LAZY) {
             try { operation() }
@@ -220,6 +221,7 @@ class AppStore(application: Application) : AndroidViewModel(application) {
         }
         actions[key] = job
         job.start()
+        return true
     }
 
     internal fun showError(error: Exception) { mutableState.update { it.copy(loading = false, error = error.message ?: "Couldn't complete the action.") } }

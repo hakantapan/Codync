@@ -91,13 +91,17 @@ class RosterSectionsTest {
         assertEquals("a".repeat(39) + emoji, limitSectionName("a".repeat(39) + emoji + "b"))
     }
 
-    @Test fun aFoldedSectionRenamedOrRemovedHereTakesItsFoldAlong() {
-        assertEquals(setOf("Home", "Jobs"), foldsAfterRename(setOf("Home", "Work"), "Work", "Jobs"))
-        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home"), "Work", "Jobs")) // Unfolded: nothing changes.
-        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home"), "Work", "Home")) // Never unfolds the target.
-        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home", "Work"), "Work", null)) // Removed: its name goes.
-        assertEquals(setOf("Home"), foldsAfterRename(setOf("Work"), "Work", "Home")) // A merge folds the section it joins.
-        assertEquals(setOf("Home"), foldsAfterRename(setOf("Home", "Work"), "Work", "Home"))
+    @Test fun aFoldedSectionRenamedOrRemovedHereStaysFoldedUnderBothNamesUntilTheComputerAnswers() {
+        fun renamed(folded: Set<String>, from: String, to: String?) = foldsAfterRenamed(foldsWhileRenaming(folded, from, to), from, to)
+        assertEquals(setOf("Home", "Work", "Jobs"), foldsWhileRenaming(setOf("Home", "Work"), "Work", "Jobs"))
+        assertEquals(setOf("Home", "Jobs"), renamed(setOf("Home", "Work"), "Work", "Jobs"))
+        assertEquals(setOf("Home"), foldsWhileRenaming(setOf("Home"), "Work", "Jobs")) // Unfolded: nothing changes.
+        assertEquals(setOf("Home"), renamed(setOf("Home"), "Work", "Home")) // Never unfolds the target.
+        assertEquals(setOf("Home", "Work"), foldsWhileRenaming(setOf("Home", "Work"), "Work", null)) // Removed: folded till it's gone,
+        assertEquals(setOf("Home"), renamed(setOf("Home", "Work"), "Work", null)) // then its name goes.
+        assertEquals(setOf("Home", "Work"), foldsWhileRenaming(setOf("Work"), "Work", "Home")) // A merge folds the section it joins.
+        assertEquals(setOf("Home"), renamed(setOf("Work"), "Work", "Home"))
+        assertEquals(setOf("Work"), renamed(setOf("Work"), "Work", "Work")) // The same name: still folded.
     }
 
     @Test fun aRefusedRenamePutsTheFoldsBackUnlessOneChangedMeanwhile() {

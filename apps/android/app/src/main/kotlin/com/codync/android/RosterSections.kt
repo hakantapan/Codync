@@ -83,11 +83,14 @@ internal fun sectionName(input: String): String? =
     input.trim().takeIf { name -> name.any { !it.isWhitespace() && !it.isISOControl() } }
 
 /**
- * This device's folded sections after it renames section [from] to [to] (null removes it): a folded [from]
- * stays folded as [to], so a merge folds the section it joins; an unfolded one changes nothing.
+ * This device's folded sections while it renames section [from] to [to] (null removes it): a folded [from] stays folded
+ * until its bots move, and [to] folds too, so a merge folds the section it joins; an unfolded one changes nothing.
  */
-internal fun foldsAfterRename(folded: Set<String>, from: String, to: String?): Set<String> =
-    if (from in folded) folded - from + setOfNotNull(to) else folded
+internal fun foldsWhileRenaming(folded: Set<String>, from: String, to: String?): Set<String> =
+    if (from in folded && to != null) folded + to else folded
+
+/** This device's folded sections once the computer renamed [from] to [to]: [from]'s name goes with its bots. */
+internal fun foldsAfterRenamed(folded: Set<String>, from: String, to: String?): Set<String> = if (from == to) folded else folded - from
 
 /** This device's folded sections after the computer refused a rename that changed them from [before] to [set]: [before] again, unless they changed since. */
 internal fun foldsAfterRefusal(current: Set<String>, set: Set<String>, before: Set<String>): Set<String> = if (current == set) before else current
