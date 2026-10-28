@@ -78,7 +78,7 @@ const HELP: [(&str, &str, &str); 72] = [
     ("VIEW", "N", "network: your other computers"),
     ("VIEW", "^k share", "share usage analytics on / off"),
     ("VIEW", "^k about", "what usage analytics include"),
-    ("VIEW", "language", "app language: follow system or choose one of eight languages"),
+    ("VIEW", "language", "app language: follow system or choose one of nine languages"),
     ("VIEW", "esc", "close / go back"),
     ("VIEW", "q", "quit; bots keep going"),
     ("MOUSE", "click", "open, press a button"),

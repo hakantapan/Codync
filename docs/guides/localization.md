@@ -1,10 +1,11 @@
 # Interface languages
 
 Each device can choose Follow system, English, Simplified Chinese, Traditional
-Chinese, Japanese, Korean, French, German or Spanish. Desktop and phone settings
-hold the choice; the terminal command palette cycles its own saved preference.
-Regional variants use their language's catalog. Unsupported system languages use
-English. The saved `zh` identifier continues to mean Simplified Chinese.
+Chinese, Japanese, Korean, French, German, Spanish or Turkish. Desktop and phone
+settings hold the choice; the terminal command palette cycles its own saved
+preference. Regional variants use their language's catalog. Unsupported system
+languages use English. The saved `zh` identifier continues to mean Simplified
+Chinese.
 
 The canonical UTF-8 JSON catalogs live in
 `apps/ios/Kit/Sources/CodyncKit/Resources/Languages/`. iOS bundles them, desktop
@@ -19,8 +20,10 @@ is not translated. The desktop catalog test checks key and placeholder parity.
 
 The five additional catalogs began as machine translations of public interface
 copy, with reviewed overrides for common controls. They have not had a complete
-native-speaker review. Translation improvements should change the canonical
-catalog and run the catalog test, together with the affected client checks.
+native-speaker review. The Turkish catalog was translated later with the
+glossary and informal address in [the Turkish plan](../plans/turkish.md).
+Translation improvements should change the canonical catalog and run the catalog
+test, together with the affected client checks.
 
 For a new language, add its catalog and register its identifier/native name in
 Swift `AppLanguage`, desktop `appLanguages`, Android `AppLanguage`, and terminal

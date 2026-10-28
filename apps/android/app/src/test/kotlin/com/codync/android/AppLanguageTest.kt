@@ -9,7 +9,7 @@ import org.junit.Test
 
 class AppLanguageTest {
     @Test fun additionalLanguagesResolveRegionsAndKeepExplicitChoices() {
-        for (language in listOf(AppLanguage.Ja, AppLanguage.Ko, AppLanguage.Fr, AppLanguage.De, AppLanguage.Es)) {
+        for (language in listOf(AppLanguage.Ja, AppLanguage.Ko, AppLanguage.Fr, AppLanguage.De, AppLanguage.Es, AppLanguage.Tr)) {
             assertEquals(language, AppLanguage.System.resolved(language.stored + "-XX"))
             assertEquals(language, language.resolved("zh-TW"))
             assertEquals(language, AppLanguage.fromStored(language.stored))
@@ -18,6 +18,14 @@ class AppLanguageTest {
             assertFalse(language.usesChinese(true))
         }
         assertEquals(AppLanguage.En, AppLanguage.System.resolved("pt-BR"))
+    }
+
+    @Test fun turkishFollowsATurkishSystemAndKeepsItsNativeName() {
+        assertEquals(AppLanguage.Tr, AppLanguage.fromStored("tr"))
+        assertEquals("tr", AppLanguage.Tr.stored)
+        assertEquals(AppLanguage.Tr, AppLanguage.System.resolved("tr-TR"))
+        assertEquals(AppLanguage.Tr, AppLanguage.System.resolved("tr_TR.UTF-8"))
+        assertEquals("Türkçe", AppLanguage.menuTitle(AppLanguage.Tr, AppLanguage.En, systemIsChinese = false, phrases))
     }
 
     private val phrases = mapOf("Pair a computer" to "配对一台电脑", "Follow system" to "跟随系统")

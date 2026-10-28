@@ -127,7 +127,7 @@ struct AppLanguageTests {
 
 extension AppLanguageTests {
 @Test func additionalLanguagesResolveRegionsAndLoadBundledCatalogs() {
-    for language in [AppLanguage.ja, .ko, .fr, .de, .es] {
+    for language in [AppLanguage.ja, .ko, .fr, .de, .es, .tr] {
         #expect(AppLanguage.resolved(preference: .system, languages: [language.rawValue + "-XX"]) == language)
         #expect(AppLanguage.resolved(preference: language, languages: ["zh-TW"]) == language)
         let translated = L10n.tr("Settings", preference: language, systemIsChinese: false)
@@ -137,6 +137,15 @@ extension AppLanguageTests {
         #expect(AppLanguage.locale(preference: language, systemIsChinese: true).language.languageCode?.identifier == language.rawValue)
     }
     #expect(AppLanguage.resolved(preference: .system, languages: ["pt-BR"]) == .en)
+}
+
+@Test func turkishFollowsATurkishSystemAndKeepsItsNativeName() {
+    #expect(AppLanguage(rawValue: "tr") == .tr)
+    #expect(AppLanguage.resolved(preference: .system, languages: ["tr-TR"]) == .tr)
+    #expect(AppLanguage.resolved(preference: .system, languages: ["tr"]) == .tr)
+    #expect(L10n.tr("Settings", preference: .system, systemIsChinese: false, systemLanguages: ["tr-TR"]) == "Ayarlar")
+    #expect(L10n.tr("Follow system", preference: .tr) == "Sistemi izle")
+    #expect(AppLanguage.menuTitle(.tr, preference: .en, systemIsChinese: false) == "Türkçe")
 }
 
 }
