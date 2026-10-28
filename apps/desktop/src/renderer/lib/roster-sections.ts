@@ -50,9 +50,14 @@ export function shownRows<T>(lines: RosterLine<T>[]): T[] {
   return lines.flatMap((line) => (line.kind === 'row' ? [line.item] : line.kind === 'label' || line.folded ? [] : line.items))
 }
 
-/** Whether a drag (or Alt+↑/↓) may move one bot past another: the same band (lead, pinned, the rest) and, below the top, the same section. */
+/** The section a bot shows in: none for the lead and pinned bots, which stay on top (terminal `Bot::shown_section`). */
+export function shownSection(bot: Omit<Placed, 'unread'>): string | undefined {
+  return onTop(bot) ? undefined : bot.section || undefined
+}
+
+/** Whether a drag (or Alt+↑/↓) may move one bot past another: the same band (lead, pinned, the rest) and the same section shown. */
 export function sameRosterGroup(a: Omit<Placed, 'unread'>, b: Omit<Placed, 'unread'>): boolean {
-  return rosterBand(a) === rosterBand(b) && (onTop(a) || (a.section || null) === (b.section || null))
+  return rosterBand(a) === rosterBand(b) && shownSection(a) === shownSection(b)
 }
 
 /** Every section among `bots` once, by name as the user's language sorts it ("İş" too). */

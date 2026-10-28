@@ -216,7 +216,7 @@ export function BotRoster({ roster, compact, onContext, onSectionContext, openEx
     const notice = store.mismatch && !compact ? <StoreContext.Provider value={store}><UpdateNeededCard /></StoreContext.Provider> : null
     const rows = rosterLines(ordered(computer.id, items), roster.folded).map((line) => line.kind === 'row' ? row(line.item, items) : line.kind === 'label' ? <RosterLabel key="label" compact={compact} /> : (
       <RosterSection key={`section/${line.name}`} name={line.name} count={line.count} unread={line.unread} folded={line.folded} compact={compact}
-        toggle={() => roster.toggleSection(line.name)} onContext={(x, y) => onSectionContext(line.name, store, x, y)}>
+        toggle={() => roster.toggleFold(line.name)} onContext={(x, y) => onSectionContext(line.name, store, x, y)}>
         {line.items.map((item) => row(item, items))}
       </RosterSection>
     ))

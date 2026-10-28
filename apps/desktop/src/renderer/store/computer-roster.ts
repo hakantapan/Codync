@@ -1,7 +1,7 @@
 import { computerSections, moveInOrder, orderedComputers } from '../lib/computer-roster'
 import { prefs, usePref } from '../lib/prefs'
 import { useModel } from '../lib/observable'
-import { foldsAfterRename, rosterLines, sameRosterGroup, sectionRename, shownRows } from '../lib/roster-sections'
+import { foldsAfterRename, rosterLines, sameRosterGroup, sectionRename, shownRows, shownSection } from '../lib/roster-sections'
 import type { BotStore } from './bot-store'
 import type { AppModel, BotRef } from './app-model'
 
@@ -26,7 +26,8 @@ export function useComputerRoster(app: AppModel, shown: Set<string>) {
     toggle(id: string) {
       setCollapsed(toggled(collapsed, id))
     },
-    toggleSection(name: string) {
+    /** Folds or unfolds roster section `name` on this device. */
+    toggleFold(name: string) {
       setFolded(toggled(folded, name))
     },
     /** Renames or removes (null) a section on `store`'s computer; a folded one stays folded under its new name, on this device, unless the host refuses. */
@@ -48,8 +49,9 @@ export function useComputerRoster(app: AppModel, shown: Set<string>) {
       const section = sections.find((s) => s.computer.id === ref.computerId)
       const items = section?.items ?? []
       const moved = items.find((item) => item.bot.id === ref.botId)
+      const shown = moved && shownSection(moved.bot)
       // A folded section shows no order to change.
-      if (!section || !moved || (!moved.bot.pinned && moved.bot.section && folded.includes(moved.bot.section))) return
+      if (!section || !moved || (shown && folded.includes(shown))) return
       const group = items.filter((item) => sameRosterGroup(item.bot, moved.bot))
       const target = group[group.indexOf(moved) + offset]
       if (target) section.store.reorder(moveInOrder(items.map((item) => item.bot.id), ref.botId, target.bot.id))

@@ -2,29 +2,12 @@ import CodyncKit
 import CodyncUI
 import SwiftUI
 
-/// What the section name dialog names: a bot's new section, or a section to rename with `save`.
-enum SectionNaming {
-    case new(Bot, BotStore)
-    case rename(String, save: @MainActor (String) -> Void)
-
-    var title: String {
-        switch self {
-        case .new: "New section"
-        case .rename: "Rename section"
-        }
-    }
-
-    /// The name the dialog opens with: none for a new section, the current one for a rename.
-    var startName: String {
-        if case let .rename(old, _) = self { old } else { "" }
-    }
-
-    @MainActor func save(_ name: String) {
-        switch self {
-        case let .new(bot, store): store.setSection(bot, to: name)
-        case let .rename(_, save): save(name)
-        }
-    }
+/// An open section name dialog (desktop and Android `SectionNaming`): its title, the name it opens
+/// with, and what Save does with the typed one.
+struct SectionNaming {
+    let title: String
+    let name: String
+    let save: @MainActor (String) -> Void
 }
 
 extension View {
@@ -50,7 +33,7 @@ private struct SectionNameDialog: ViewModifier {
                 }]
             }
             // Each opening starts from its own name.
-            .onChange(of: naming?.startName) { if let start = naming?.startName { name = start } }
+            .onChange(of: naming?.name) { if let start = naming?.name { name = start } }
             // Typing stops where the computer's limit is.
             .onChange(of: name) {
                 let limited = RosterSection.limited(name)

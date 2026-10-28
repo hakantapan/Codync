@@ -297,7 +297,9 @@ struct BotListView: View {
             header.contextActions {
                 [
                     MenuItem("Rename section…", icon: "pencil") {
-                        naming = .rename(section.name) { renameSection(section.name, to: $0, on: store) }
+                        naming = SectionNaming(title: "Rename section", name: section.name) {
+                            renameSection(section.name, to: $0, on: store)
+                        }
                     },
                     MenuItem("Remove section", icon: "xmark.circle") { renameSection(section.name, to: nil, on: store) },
                 ]
@@ -360,7 +362,9 @@ struct BotListView: View {
         var rows = store.sections.filter { $0 != bot.section }.map { name in
             MenuItem(name, icon: "tray", verbatim: true) { store.setSection(bot, to: name) }
         }
-        rows.append(MenuItem("New section…", icon: "plus", divider: !rows.isEmpty) { naming = .new(bot, store) })
+        rows.append(MenuItem("New section…", icon: "plus", divider: !rows.isEmpty) {
+            naming = SectionNaming(title: "New section", name: "") { store.setSection(bot, to: $0) }
+        })
         if bot.section != nil {
             rows.append(MenuItem("Remove from section", icon: "minus.circle") { store.setSection(bot, to: nil) })
         }

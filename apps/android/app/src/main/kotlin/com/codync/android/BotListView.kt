@@ -105,7 +105,8 @@ import kotlinx.serialization.json.putJsonArray
                     is RosterLine.Header -> SectionHeader(line, toggle = {
                         folded = if (line.name in folded) folded - line.name else folded + line.name
                         FoldedSections.save(context, folded)
-                    }, actions = if (state.supportsSections) sectionActions(rename = { naming = SectionNaming.Rename(line.name) },
+                    }, actions = if (state.supportsSections) sectionActions(
+                        rename = { naming = SectionNaming("Rename section", line.name) { renameSection(line.name, it) } },
                         remove = { renameSection(line.name, null) }) else emptyList(),
                         modifier = Modifier.animateItem())
                     RosterLine.Label -> SectionLabel(Modifier.animateItem())
@@ -117,7 +118,7 @@ import kotlinx.serialization.json.putJsonArray
                                 else Modifier.animateItem())) {
                             BotRowItem(bot, state, store, reorder.handle(bot.id) { store.reorder(it) }, sections, edit = { edit(bot) },
                                 newSession = { confirmNewSession = bot }, delete = { confirmDelete = bot },
-                                newSection = { naming = SectionNaming.New(bot.id) })
+                                newSection = { naming = SectionNaming("New section", "") { store.setSection(bot.id, it) } })
                         }
                     }
                 }
@@ -137,7 +138,7 @@ import kotlinx.serialization.json.putJsonArray
             deleting?.let { store.deleteBot(it) {} }
         })
     }
-    SectionNameDialog(naming, store, renameSection) { naming = null }
+    SectionNameDialog(naming) { naming = null }
 }
 
 /**
