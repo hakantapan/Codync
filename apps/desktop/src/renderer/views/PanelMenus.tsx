@@ -113,6 +113,9 @@ export function AccountPanelLayer({ compact, approvals, onDismiss, onUsage, onSe
 function PanelRows({ items, onDismiss, after }: { items: PanelItem[]; onDismiss: () => void; after?: (i: number) => ReactNode }) {
   const tr = useTr()
   const [highlighted, setHighlighted] = useState(0)
+  const highlightedRow = useRef<HTMLButtonElement>(null)
+  // A long list scrolls: ↑/↓ and Tab bring the row Enter would run into view.
+  useEffect(() => highlightedRow.current?.scrollIntoView({ block: 'nearest' }), [highlighted])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -138,6 +141,7 @@ function PanelRows({ items, onDismiss, after }: { items: PanelItem[]; onDismiss:
       {items.map((item, i) => (
         <div key={item.title}>
           <button
+            ref={highlighted === i ? highlightedRow : undefined}
             className={`panel-row ${highlighted === i ? 'highlight' : ''} ${item.destructive ? 'destructive' : ''}`}
             disabled={item.disabled}
             onMouseEnter={() => setHighlighted(i)}
