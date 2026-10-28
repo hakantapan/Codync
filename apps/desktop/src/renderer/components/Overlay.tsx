@@ -207,6 +207,8 @@ export interface MenuItem {
   selected?: boolean
   destructive?: boolean
   divider?: boolean
+  /** The title is a name the user gave (a section): shown as typed, never translated. */
+  verbatim?: boolean
   action: () => void
 }
 
@@ -274,7 +276,7 @@ export function MenuPanel({ items, reactions, dismiss, maxHeight }: { items: Men
             className={`menu-row ${item.destructive ? 'destructive' : ''} ${highlight === i ? 'highlight' : ''}`}
             role={item.selected === undefined ? 'menuitem' : 'menuitemradio'}
             aria-checked={item.selected}
-            title={tr(item.title)}
+            title={item.verbatim ? item.title : tr(item.title)}
             onMouseEnter={() => setHighlight(i)}
             onClick={() => {
               dismiss()
@@ -286,7 +288,7 @@ export function MenuPanel({ items, reactions, dismiss, maxHeight }: { items: Men
                 {item.leading ?? (item.icon ? <Icon name={item.icon} size={12} /> : null)}
               </span>
             ) : null}
-            <span className="menu-title">{tr(item.title)}</span>
+            <span className="menu-title">{item.verbatim ? item.title : tr(item.title)}</span>
             {item.selected !== undefined ? (
               <span className={`check-slot${item.selected ? ' on' : ''}`}>
                 <Icon name="checkmark" size={10} weight="semibold" />

@@ -30,6 +30,8 @@ test('Move to section offers the other sections (hidden bots\' too), a new one, 
   const { store, calls, naming, bot } = computer()
   const rows = submenu(moveToSectionItems(bot('work'), store, (n) => naming.push(n)))
   assert.deepEqual(rows.map((r) => r.title), ['archive', 'Home', 'New section…', 'Remove from section'])
+  // Section names show as the user typed them ("Home" stays "Home" in any language); the rest is translated.
+  assert.deepEqual(rows.map((r) => r.verbatim === true), [true, true, false, false])
   rows[1]!.action()
   rows[3]!.action()
   rows[2]!.action()
@@ -52,6 +54,11 @@ test('a header renames its section from its name, or removes it', () => {
   naming[0]!.save('Jobs')
   items[1]!.action()
   assert.deepEqual(calls, [['rename', 'Jobs'], ['rename', null]])
+})
+
+test('the lead gets no Move to section: it stays on top, outside sections', () => {
+  const { store, bot } = computer()
+  assert.deepEqual(moveToSectionItems({ ...bot('work'), lead: true }, store, () => {}), [])
 })
 
 test('a host without sections gets no section menus', () => {

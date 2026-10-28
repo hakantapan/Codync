@@ -41,6 +41,8 @@ interface PanelItem {
   chevron?: boolean
   disabled?: boolean
   destructive?: boolean
+  /** A name the user gave: shown as typed, never translated. */
+  verbatim?: boolean
   action: () => void
 }
 
@@ -150,7 +152,7 @@ function PanelRows({ items, onDismiss, after }: { items: PanelItem[]; onDismiss:
             <IconSlot width={20}>
               {item.image ? <img src={item.image} alt="" width={14} height={14} /> : <Icon name={item.icon} size={14} />}
             </IconSlot>
-            <Text size="callout" truncate grow>{tr(item.title)}</Text>
+            <Text size="callout" truncate grow>{item.verbatim ? item.title : tr(item.title)}</Text>
             {item.detail ? <Text size="body" tone="secondary">{item.detail}</Text> : null}
             {item.chevron ? <Icon name="chevron.right" size={11} color="var(--secondary)" /> : null}
           </button>
@@ -173,7 +175,7 @@ export function DesktopActionMenu({ items, onDismiss, x, y }: { items: ActionIte
   useLayoutEffect(() => setHeight(menu.current?.offsetHeight ?? 0))
   const row = (m: ActionItem): PanelItem => 'submenu' in m
     ? { title: m.title, icon: m.icon ?? 'circle', chevron: true, action: () => setSubmenu({ title: m.title, items: m.submenu }) }
-    : { title: m.title, icon: m.icon ?? 'circle', destructive: m.destructive, action: () => { onDismiss(); m.action() } }
+    : { title: m.title, icon: m.icon ?? 'circle', destructive: m.destructive, verbatim: m.verbatim, action: () => { onDismiss(); m.action() } }
   const rows: { row: PanelItem; divider?: boolean }[] = submenu
     ? [{ row: { title: submenu.title, icon: 'chevron.left', action: () => setSubmenu(null) } }, ...submenu.items.map((m, i) => ({ row: row(m), divider: i === 0 || m.divider }))]
     : items.map((m) => ({ row: row(m), divider: m.divider }))

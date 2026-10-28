@@ -3,6 +3,7 @@ import { Icon } from '../components/Icon'
 import { HStack } from '../components/Stack'
 import { Text } from '../components/Text'
 import { useSlide } from '../lib/slide'
+import { useTr } from '../lib/use-language'
 import './computer-roster.css'
 
 interface Props {
@@ -45,8 +46,9 @@ export function RosterSection({ name, count, unread, folded, compact, toggle, on
 /** The plain "Bots" label over the bots in no section, set like a section's name; it folds nothing.
  *  The narrow rail drops its text, as headers drop their names, and keeps the gap. */
 export function RosterLabel({ compact }: { compact: boolean }) {
+  const tr = useTr()
   const label = useRef<HTMLDivElement>(null)
   useSlide(label)
-  if (compact) return <div ref={label} className="roster-label" role="heading" aria-level={3} aria-label="Bots" />
-  return <div ref={label} className="roster-label"><Text as="h3" size="caption" weight="semibold" tone="secondary">Bots</Text></div>
+  if (compact) return <div ref={label} className="roster-label" role="heading" aria-level={3} aria-label={tr('Bots')} />
+  return <div ref={label} className="roster-label"><Text as="h3" size="caption" weight="semibold" tone="secondary">{tr('Bots')}</Text></div>
 }
