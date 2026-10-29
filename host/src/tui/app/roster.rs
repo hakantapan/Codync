@@ -44,17 +44,18 @@ impl Bot {
 }
 
 /// How sections sort: by name with case and accents set aside ("Çalışma" beside "Cherry", "home"
-/// before "Work"), the exact name breaking ties.
+/// before "Work"); then unaccented first ("Cafe", "Café"), then lowercase first ("work", "Work",
+/// whose capitals have the lower code points), as the apps' collators order them.
 // ponytail: accents folded, no locale rules (Swedish "å" sorts as "a", Turkish "ı" by code point,
 // unlike the apps' system collators); icu_collator if the terminal must match them exactly.
-fn section_key(name: &str) -> (String, &str) {
+fn section_key(name: &str) -> (String, String, Reverse<&str>) {
     let base = DecomposingNormalizerBorrowed::new_nfd()
         .normalize(name)
         .chars()
         .filter(|c| !('\u{300}'..='\u{36f}').contains(c))
         .flat_map(char::to_lowercase)
         .collect();
-    (base, name)
+    (base, name.to_lowercase(), Reverse(name))
 }
 
 /// `roster` (in `App::roster` order) as lines; a folded section is its label alone. Without pinned
@@ -264,7 +265,7 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::super::{Bot, Click, Overlay, test_app};
-    use super::{App, NOT_IN_A_SECTION, RosterLine, cursor_line, rename_fold, roster_lines};
+    use super::{App, NOT_IN_A_SECTION, RosterLine, cursor_line, rename_fold, roster_lines, section_key};
     use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
     use ratatui::layout::Rect;
     use serde_json::json;
@@ -393,6 +394,15 @@ mod tests {
             app.on_mouse(click);
             assert_eq!(app.folded.contains("Work"), folded);
             assert_eq!(app.selected.as_deref(), Some(selected), "folding keeps the selection, opening moves it in");
+        }
+    }
+
+    #[test]
+    fn names_alike_but_for_case_or_accents_sort_as_the_apps_do() {
+        for names in [["Work", "work", "Café", "Cafe"], ["Cafe", "work", "Café", "Work"]] {
+            let mut v = names.to_vec();
+            v.sort_by_cached_key(|&name| section_key(name));
+            assert_eq!(v, ["Cafe", "Café", "work", "Work"]);
         }
     }
 

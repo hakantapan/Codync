@@ -139,6 +139,8 @@ class AppStore(application: Application) : AndroidViewModel(application) {
         channel?.close(); channel = null
         connectionJob = null; pairingJob = null; graceJob = null
         actions.clear(); sends.clear(); downloadLocks.clear(); cloud = null
+        // A cancelled section move never heard back: it would lie over the next mirror for good.
+        pendingSectionMoves.clear(); mirrorBots = emptyList()
         pluginsRefreshAgain = false
         rewoundFor = null
         draftWriter = null; draftBook = null; savedDrafts = emptyMap()

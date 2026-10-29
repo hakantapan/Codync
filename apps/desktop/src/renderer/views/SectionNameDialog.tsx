@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Dialog } from '../components/Overlay'
-import { limitSectionName } from '../lib/roster-sections'
+import { limitSectionName, sectionName } from '../lib/roster-sections'
 import { useTr } from '../lib/use-language'
 import type { SectionNaming } from './section-menus'
 
@@ -15,7 +15,8 @@ export function SectionNameDialog({ naming, onClose }: { naming: SectionNaming |
     setName(naming.name)
   }
   const save = () => {
-    if (naming && name.trim()) naming.save(name)
+    const typed = sectionName(name)
+    if (naming && typed) naming.save(typed)
   }
   return (
     <Dialog open={naming !== null} title={naming ? tr(naming.title) : ''} actions={[{ title: 'Save', action: save }]} onClose={onClose}>

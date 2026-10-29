@@ -70,11 +70,12 @@ import com.codync.android.design.*
             Text(header.name, Modifier.weight(1f, fill = false), style = Type.footnote.semibold, color = Palette.secondary,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("${header.count}", style = Type.footnote, color = Palette.tertiary)
-            AnimatedVisibility(header.folded && header.unread > 0, enter = fadeIn(Motion.fade()), exit = fadeOut(Motion.fade())) {
-                UnreadBadge(header.unread)
-            }
         }
         Spacer(Modifier.width(8.dp))
+        // The badge sits at the trailing edge, next to the chevron, as on iPhone and the desktop.
+        AnimatedVisibility(header.folded && header.unread > 0, Modifier.padding(end = 6.dp), enter = fadeIn(Motion.fade()), exit = fadeOut(Motion.fade())) {
+            UnreadBadge(header.unread)
+        }
         Symbol("chevron.down", Modifier.rotate(turn), size = 14.dp, tint = Palette.tertiary)
     }
 }

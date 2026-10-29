@@ -103,6 +103,13 @@ private func rosterBot(_ id: String, pinned: Bool = false, lead: Bool = false, h
     #expect(!lead.isRosterPeer(of: p) && !lead.isRosterPeer(of: w))
 }
 
+@Test func sectionsSortTheSameWhateverOrderTheyComeIn() {
+    // As the other clients sort them: lowercase first, unaccented first, digits one by one.
+    for names in [["Work", "work", "Café", "Cafe", "Sprint 2", "Sprint 10"], ["Sprint 10", "Cafe", "work", "Sprint 2", "Café", "Work"]] {
+        #expect(RosterSection.sorted(names) == ["Cafe", "Café", "Sprint 10", "Sprint 2", "work", "Work"])
+    }
+}
+
 @Test func typedSectionNamesAreTrimmedAndCappedLikeTheHost() {
     #expect(RosterSection.name(typed: "") == nil)
     #expect(RosterSection.name(typed: " \n\t ") == nil)

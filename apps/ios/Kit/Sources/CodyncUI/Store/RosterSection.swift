@@ -10,10 +10,10 @@ public struct RosterSection: Sendable {
     public let folded: Bool
 
     /// Section names as the roster lists them: the way the user's language sorts ("İş" in Turkish),
-    /// "Work" before "work" so two names that differ only in case keep one order.
+    /// "work" before "Work", digits one by one ("Sprint 10" before "Sprint 2"), as every client does.
     static func sorted(_ names: some Sequence<String>) -> [String] {
         names.sorted {
-            let order = $0.localizedStandardCompare($1)
+            let order = $0.localizedCompare($1)
             return order == .orderedSame ? $0 < $1 : order == .orderedAscending
         }
     }

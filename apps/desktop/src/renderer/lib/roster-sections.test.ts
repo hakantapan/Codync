@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { chainedMoves, foldsAfterRename, hostHasSections, limitSectionName, placedBots, restoredBots, rosterLines, sameRosterGroup, sectionMembers, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
+import { chainedMoves, foldsAfterRename, hostHasSections, limitSectionName, placedBots, restoredBots, rosterLines, sameRosterGroup, sectionMembers, sectionName, sectionNames, sectionRename, shownRows, type RosterLine } from './roster-sections.ts'
 
 const item = (id: string, section?: string, { lead = false, pinned = false, unread = 0 } = {}) => ({ id, bot: { lead, pinned, section, unread } })
 type Item = ReturnType<typeof item>
@@ -65,6 +65,16 @@ test('a bot moves past bots with the same pin state and section; pinned bots ign
 
 test('every section once, sorted by name', () => {
   assert.deepEqual(sectionNames([{ section: 'Work' }, {}, { section: 'apps' }, { section: 'Work' }, { section: '' }]), ['apps', 'Work'])
+  // Names that differ only in case or accents keep one order, whatever order the bots come in.
+  for (const names of [['Work', 'work', 'Café', 'Cafe'], ['Cafe', 'work', 'Café', 'Work']]) {
+    assert.deepEqual(sectionNames(names.map((section) => ({ section }))), ['Cafe', 'Café', 'work', 'Work'])
+  }
+})
+
+test('a typed name is trimmed of whitespace and control characters, nothing left being none', () => {
+  assert.equal(sectionName('  Work\t\u0001'), 'Work')
+  assert.equal(sectionName('Side projects'), 'Side projects')
+  for (const typed of [null, '', ' \n\t', '\u00a0', '\u0000', ' \u0000 \t']) assert.equal(sectionName(typed), null)
 })
 
 test('removing a section sends `to` as null, which JSON keeps', () => {

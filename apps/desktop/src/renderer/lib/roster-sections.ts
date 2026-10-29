@@ -60,16 +60,21 @@ export function sameRosterGroup(a: Omit<Placed, 'unread'>, b: Omit<Placed, 'unre
   return rosterBand(a) === rosterBand(b) && shownSection(a) === shownSection(b)
 }
 
-/** Every section among `bots` once, by name as the user's language sorts it ("İş" too). */
+/** Every section among `bots` once, by name as the user's language sorts it ("İş" too; "work" before "Work", as on the phones). */
 export function sectionNames(bots: Iterable<{ section?: string }>): string[] {
   const names = new Set<string>()
   for (const bot of bots) if (bot.section) names.add(bot.section)
-  return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+  return [...names].sort((a, b) => a.localeCompare(b))
 }
 
-/** `renameSection`'s payload: `to` trimmed, and null (sent, not left out) to remove the section. */
+/** The section a typed name names: trimmed of whitespace and control characters, null when nothing is left (iOS `RosterSection.name(typed:)`). */
+export function sectionName(typed: string | null): string | null {
+  return typed?.replace(/^[\s\p{Cc}]+|[\s\p{Cc}]+$/gu, '') || null
+}
+
+/** `renameSection`'s payload: `to` as `sectionName` reads it, and null (sent, not left out) to remove the section. */
 export function sectionRename(from: string, to: string | null): { from: string; to: string | null } {
-  return { from, to: to?.trim() || null }
+  return { from, to: sectionName(to) }
 }
 
 /**

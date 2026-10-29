@@ -68,7 +68,7 @@ section too.
 
 | Client | Model | Header | Menus | Name entry | Folded state |
 |---|---|---|---|---|---|
-| Desktop | `shared/models.ts` `Bot.section`, `normalizeBot` | modeled on `ComputerRosterSection` | `botActions` (`ChatWindow.tsx`) + header menu, `AnchoredMenu` | `Dialog` | `prefs.ts`, `collapsedRosterSections` |
+| Desktop | `shared/models.ts` `Bot.section`, `normalizeBot` | modeled on `ComputerRosterSection` | `DesktopActionMenu` (`PanelMenus.tsx`), items from `views/section-menus.ts` (Move to section as submenu rows) | `Dialog` | `prefs.ts`, `collapsedRosterSections` |
 | iPhone | `Bot.swift` `Bot.section: String?`; `HostClient.setSection` sends `null` to clear | modeled on `ComputerSection` | system `contextMenu` submenu (`.contextActions`) | `.codyncDialog` | `@AppStorage("collapsedRosterSections")` |
 | Android | `HostClient.kt` `Bot.section`; `BotDraft.template()` leaves it out | modeled on iOS `ComputerSection` (`RosterSectionViews.kt`) | `contextActions` | `CodyncDialog` | `SharedPreferences` |
 | Terminal | `tui/app/bot.rs` `Bot.section` | labels beside `PINNED` / `BOTS` in `view/roster.rs` | keys, listed in `view/help.rs` | `section_fields` sheet (`manage/fields.rs`) | in memory |
@@ -89,9 +89,7 @@ through `sameRosterGroup` (`lib/roster-sections.ts`); iPhone `BotStore.move` and
 
 ## Release
 
-No version bump in this change: feature PRs don't bump product versions
-([Android app](../../apps/android/README.md)). The maintainer's next release (2.32.0) carries it, and
-clients gate the section controls on a 2.32.0 host. [Bot order](../features/computer-order.md#bot-order)
-and the scope table in [remote relay](../reference/remote-relay.md) cover `renameSection`; release
-notes go in the PR's `## What's New: iPhone` and `## What's New: Android` sections, as `### zh-Hant` and
-`### en-US` bullets (what `tools/store_release.py` reads when a release has no WhatsNew.md section).
+This change bumps every version file to 2.32.0, the first host with sections, and clients gate the
+section controls on a 2.32.0 host. Its What's New bullets are in the `## 2.32.0` sections of
+`apps/ios/WhatsNew.md` and `apps/android/WhatsNew.md`. [Bot order](../features/computer-order.md#bot-order)
+and the scope table in [remote relay](../reference/remote-relay.md) cover `renameSection`.
